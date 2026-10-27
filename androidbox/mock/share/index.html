@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Share to NAIL'EM</title>
+<style>
+  @font-face { font-family: Outfit; src: url(outfit.ttf); font-weight: 100 900; }
+  :root { --bg: #07080a; --card: rgba(26,27,32,.78); --line: rgba(255,255,255,.08); --text: #fff;
+    --soft: rgba(255,255,255,.72); --muted: rgba(255,255,255,.55); --teal: #30E0C4; --green: #30E094;
+    --blue: #3679F2; --red: #FF0E36; --amber: #F2C230; color-scheme: dark; }
+  * { box-sizing: border-box; }
+  html { background: var(--bg); }
+  body { margin: 0; min-height: 100vh; color: var(--text); font: 300 16px/1.5 Outfit, system-ui, sans-serif;
+    background:
+      radial-gradient(60vmax 36vmax at 0% 0%, rgba(48,224,148,.13), transparent 70%),
+      radial-gradient(55vmax 36vmax at 100% 10%, rgba(54,121,242,.15), transparent 70%),
+      radial-gradient(50vmax 30vmax at 90% 105%, rgba(255,14,54,.09), transparent 70%), var(--bg);
+    background-attachment: fixed; }
+  main { max-width: 600px; margin: 0 auto; padding: 28px 16px 40px; }
+  b, strong { font-weight: 600; }
+
+  .brand { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 15px; }
+  .mark { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; width: 22px; height: 16px; }
+  .mark i { border-radius: 2px; } .mark i:nth-child(1) { background: var(--green); } .mark i:nth-child(2) { background: var(--teal); }
+  .mark i:nth-child(3) { background: var(--blue); } .mark i:nth-child(4) { background: var(--red); }
+  .places { margin-left: auto; padding: 3px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--card); font-size: 14px; color: var(--soft); }
+  .places::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--green); margin-right: 8px; vertical-align: 1px; }
+  .places.full::before { background: var(--red); }
+  h1 { margin: 26px 0 0; font-weight: 300; font-size: 20px; color: var(--soft); }
+  h1 span { display: block; font-weight: 700; font-size: 44px; line-height: 1.05; color: var(--text); letter-spacing: -.5px; margin-top: 2px; overflow-wrap: anywhere; }
+  .rule { width: 96px; height: 4px; border-radius: 2px; margin: 16px 0 0; background: linear-gradient(90deg, #30E094, #30E0C4 35%, #3679F2 70%, #FF0E36); }
+  .lead { color: var(--soft); margin: 14px 0 0; }
+
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 22px; padding: 20px; margin-top: 22px; }
+  label.field { display: block; font-size: 14px; color: var(--muted); margin-bottom: 8px; }
+  input[type=text] { width: 100%; font: 400 17px Outfit, system-ui, sans-serif; color: var(--text); background: rgba(0,0,0,.35);
+    border: 1px solid var(--line); border-radius: 14px; padding: 13px 15px; }
+  input[type=text]:focus { outline: 2px solid var(--teal); border-color: transparent; }
+
+  .choices { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 14px; }
+  .choices.one { grid-template-columns: 1fr; }
+  .choice { text-align: left; border: 1px solid var(--line); border-radius: 18px; padding: 16px; cursor: pointer; color: var(--text);
+    background: rgba(255,255,255,.03); font: inherit; display: flex; flex-direction: column; gap: 10px; transition: border-color .15s, background .15s; }
+  .choice:hover { border-color: rgba(255,255,255,.22); background: rgba(255,255,255,.06); }
+  .choice .ic { width: 44px; height: 44px; border-radius: 13px; display: grid; place-items: center; }
+  .choice .t { display: block; font-weight: 600; font-size: 19px; }
+  .choice .s { display: block; color: var(--muted); font-size: 14px; line-height: 1.35; margin-top: 4px; }
+  .choice.screen .ic { background: rgba(48,224,196,.16); } .choice.camera .ic { background: rgba(54,121,242,.18); }
+  .choice.screen { border-color: rgba(48,224,196,.45); background: rgba(48,224,196,.07); }
+
+  .switch { display: flex; align-items: center; gap: 12px; margin-top: 16px; font-size: 15px; color: var(--soft); cursor: pointer; }
+  .switch input { appearance: none; width: 42px; height: 24px; border-radius: 12px; background: rgba(255,255,255,.16); position: relative; margin: 0; flex: none; cursor: pointer; transition: background .15s; }
+  .switch input::after { content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: left .15s; }
+  .switch input:checked { background: var(--teal); } .switch input:checked::after { left: 21px; }
+  .switch small { display: block; color: var(--muted); font-size: 13px; }
+
+  .notice { display: flex; gap: 12px; margin-top: 16px; padding: 13px 15px; border-radius: 16px; font-size: 14px; line-height: 1.45;
+    background: rgba(255,14,54,.10); border: 1px solid rgba(255,14,54,.35); color: rgba(255,255,255,.88); }
+  .notice .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--red); box-shadow: 0 0 10px var(--red); flex: none; margin-top: 6px; }
+  .notice code { font: 600 14px Outfit, monospace; color: #fff; white-space: nowrap; }
+
+  .tips { color: var(--muted); font-size: 14px; margin: 14px 2px 0; }
+
+  /* live */
+  .stage { position: relative; border-radius: 18px; overflow: hidden; background: #000; aspect-ratio: 16 / 9; }
+  .stage.portrait { aspect-ratio: 3 / 4; width: min(100%, calc(48vh * 3 / 4)); margin: 0 auto; }
+  .stage video, .stage .fake { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+  .fake { background: linear-gradient(135deg, #1b2a3a, #0d1520 60%, #1a1023); display: grid; place-items: center; color: rgba(255,255,255,.35); font-size: 14px; }
+  .onair { position: absolute; left: 12px; top: 12px; padding: 4px 12px; border-radius: 999px; font-size: 13px; font-weight: 500;
+    background: rgba(0,0,0,.55); backdrop-filter: blur(6px); display: flex; align-items: center; gap: 8px; }
+  .onair::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--green); }
+  .status { display: flex; align-items: center; gap: 10px; margin-top: 16px; font-weight: 600; font-size: 18px; }
+  .status::before { content: ""; width: 11px; height: 11px; border-radius: 50%; background: var(--muted); flex: none; }
+  .status.ok::before { background: var(--green); box-shadow: 0 0 10px var(--green); }
+  .status.wait::before { background: var(--amber); animation: pulse 1s ease-in-out infinite; }
+  .status.bad::before { background: var(--red); }
+  @keyframes pulse { 0%, 100% { opacity: .35; transform: scale(.8); } 50% { opacity: 1; transform: scale(1.15); } }
+  .steps { display: flex; gap: 6px; margin-top: 12px; }
+  .steps i { flex: 1; height: 4px; border-radius: 2px; background: rgba(255,255,255,.12); }
+  .steps i.done { background: var(--teal); }
+  .steps i.now { background: linear-gradient(90deg, var(--teal), rgba(48,224,196,.15)); background-size: 200% 100%; animation: sweep 1.2s linear infinite; }
+  @keyframes sweep { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+  .detail { color: var(--muted); font-size: 14px; margin: 6px 0 0; font-variant-numeric: tabular-nums; }
+  .keep { color: var(--muted); font-size: 14px; margin: 10px 0 0; }
+  .row { display: flex; gap: 10px; margin-top: 16px; }
+  .btn { flex: 1; border-radius: 14px; padding: 14px; font: 600 16px Outfit, system-ui, sans-serif; cursor: pointer; border: 1px solid var(--line); background: rgba(255,255,255,.05); color: var(--text); }
+  .btn.stop { border-color: rgba(255,14,54,.55); background: rgba(255,14,54,.12); color: #ff6b84; }
+
+  .message { margin-top: 16px; padding: 13px 15px; border-radius: 16px; background: rgba(255,14,54,.10); border: 1px solid rgba(255,14,54,.35); color: #ff8fa2; font-size: 15px; }
+
+  details { margin-top: 22px; color: var(--muted); font-size: 14px; border-top: 1px solid var(--line); padding-top: 14px; }
+  summary { cursor: pointer; color: var(--soft); font-weight: 500; }
+  details ul { padding-left: 18px; margin: 10px 0 0; }
+  footer { margin-top: 26px; color: rgba(255,255,255,.35); font-size: 13px; text-align: center; }
+  @media (max-width: 520px) {
+    h1 span { font-size: 38px; }
+    .choices { grid-template-columns: 1fr; }
+    .choice { flex-direction: row; align-items: center; gap: 14px; padding: 14px; }
+    .choice .ic { flex: none; }
+    .choice .t { display: block; }
+    .choice > span:not(.ic) { display: block; }
+  }
+  @media (prefers-reduced-motion: reduce) { .status.wait::before, .steps i.now { animation: none; } }
+
+  /* mock only */
+  .mockbar { position: sticky; top: 0; z-index: 9; display: flex; gap: 6px; flex-wrap: wrap; padding: 8px 12px; background: #1b1c20; border-bottom: 1px solid #333; font: 13px system-ui; }
+  .mockbar button { background: #2a2b31; color: #ddd; border: 1px solid #3a3b42; border-radius: 7px; padding: 4px 10px; cursor: pointer; font: inherit; }
+  .mockbar button.on { background: #3679F2; border-color: #3679F2; color: #fff; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<div class="mockbar" id="mockbar">
+  <button data-s="setup" class="on">Start</button>
+  <button data-s="android">Start (Android phone)</button>
+  <button data-s="connecting">Connecting</button>
+  <button data-s="screen">Sharing screen</button>
+  <button data-s="camera">Sharing camera (phone)</button>
+  <button data-s="full">TV full</button>
+</div>
+<main>
+  <div class="brand"><span class="mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>StreamPort
+    <span class="places" id="places">3 of 4 places free</span></div>
+  <h1>Share to <span>NAIL'EM</span></h1>
+  <div class="rule"></div>
+
+  <section id="setup">
+    <p class="lead">Your screen or camera shows up on the TV next to the others. One way only: nothing comes back to you.</p>
+    <div class="card">
+      <label class="field" for="name">Your name on the TV</label>
+      <input id="name" type="text" maxlength="40" placeholder="e.g. Kapong's laptop">
+      <div class="choices" id="choices">
+        <button class="choice screen" id="share">
+          <span class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#30E0C4" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg></span>
+          <span><span class="t">Share screen</span>
+          <span class="s">A window, a tab or the whole screen. Tick "share audio" for sound.</span></span>
+        </button>
+        <button class="choice camera" id="camera">
+          <span class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#7AA6FF" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 10l5-3v10l-5-3z"/><rect x="2" y="6" width="13" height="12" rx="2.5"/></svg></span>
+          <span><span class="t">Share camera</span>
+          <span class="s">Front or back camera on phones.</span></span>
+        </button>
+      </div>
+      <label class="switch"><input type="checkbox" id="mic"><span>Microphone with the camera<small>Off by default: a phone near the TV can echo.</small></span></label>
+      <div class="notice" id="notice"><span class="dot"></span><span><b>This TV is rebroadcast to the network.</b> Anyone here can watch it in VLC at <code>udp://@239.255.42.42:5004</code>. Don't share anything private.</span></div>
+    </div>
+    <p class="tips" id="android-tip" hidden>Android browsers can't share the screen; the camera works. To show your phone's screen, use Cast from the quick settings.</p>
+    <div class="message" id="full" hidden>All 4 places on the TV are taken. Try again when someone stops.</div>
+  </section>
+
+  <section id="live" hidden>
+    <div class="card">
+      <div class="stage" id="stage"><div class="fake" id="fake">Your shared screen</div><span class="onair" id="onair">On the TV</span></div>
+      <div class="status wait" id="status">Connecting to NAIL'EM</div>
+      <div class="steps" id="steps"><i class="done"></i><i class="now"></i><i></i></div>
+      <p class="detail" id="detail"></p>
+      <p class="keep">Keep this page open while you share. Closing it stops sharing.</p>
+      <div class="row">
+        <button class="btn" id="flip" hidden>Switch camera</button>
+        <button class="btn stop">Stop sharing</button>
+      </div>
+    </div>
+  </section>
+
+  <details>
+    <summary>Not working?</summary>
+    <ul>
+      <li>A "not private" warning on the first visit is expected: the TV makes its own certificate. Choose Advanced, then Proceed.</li>
+      <li>iPhone and iPad: Screen Mirroring (Control Center) works best; Safari here needs iOS 27 or later.</li>
+      <li>Nothing on the TV after 20 seconds? Stop, and share again.</li>
+    </ul>
+  </details>
+  <footer>StreamPort on NAIL'EM · 192.168.1.23</footer>
+</main>
+<script>
+  const $ = (id) => document.getElementById(id);
+  function show(s) {
+    document.querySelectorAll('[data-s]').forEach((b) => b.classList.toggle('on', b.dataset.s === s));
+    const live = ['connecting', 'screen', 'camera'].includes(s);
+    $('setup').hidden = live; $('live').hidden = !live;
+    $('camera').hidden = false; $('share').hidden = s === 'android';
+    $('choices').classList.toggle('one', s === 'android');
+    $('android-tip').hidden = s !== 'android';
+    $('full').hidden = s !== 'full';
+    $('places').textContent = s === 'full' ? 'TV full' : '3 of 4 places free';
+    $('places').classList.toggle('full', s === 'full');
+    $('stage').classList.toggle('portrait', s === 'camera');
+    $('fake').textContent = s === 'camera' ? 'Your camera' : 'Your shared screen';
+    $('onair').hidden = s === 'connecting';
+    $('flip').hidden = s !== 'camera';
+    const st = $('status');
+    if (s === 'connecting') { st.className = 'status wait'; st.textContent = 'Connecting to NAIL’EM'; $('steps').hidden = false; $('detail').textContent = ''; }
+    else { st.className = 'status ok'; st.textContent = 'On the TV now'; $('steps').hidden = true;
+      $('detail').textContent = s === 'camera' ? '720×960 · 30 fps · 2.1 Mb/s' : '1280×720 · 30 fps · 3.4 Mb/s'; }
+  }
+  document.querySelectorAll('[data-s]').forEach((b) => b.addEventListener('click', () => show(b.dataset.s)));
+  show(new URLSearchParams(location.search).get('state') || 'setup');
+  if (window.self !== window.top) $('mockbar').hidden = true;
+</script>
+</body>
+</html>

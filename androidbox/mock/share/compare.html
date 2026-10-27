@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Share page: current vs new</title>
+<style>
+  body { margin: 0; background: #1b1c20; color: #ccc; font: 13px system-ui, sans-serif; }
+  .bar { display: flex; gap: 6px; flex-wrap: wrap; padding: 10px 16px; align-items: center; }
+  .bar button { background: #2a2b31; color: #ddd; border: 1px solid #3a3b42; border-radius: 7px; padding: 5px 11px; cursor: pointer; font: inherit; }
+  .bar button.on { background: #3679F2; border-color: #3679F2; color: #fff; }
+  .wrap { display: flex; gap: 24px; padding: 8px 16px 24px; flex-wrap: wrap; }
+  figure { margin: 0; }
+  figcaption { margin-bottom: 6px; }
+  iframe { width: 390px; height: 844px; border: 1px solid #333; border-radius: 18px; background: #000; }
+  .wide iframe { width: 820px; height: 760px; }
+</style>
+</head>
+<body>
+<div class="bar">
+  <span>Width:</span><button data-w="phone" class="on">Phone</button><button data-w="laptop">Laptop</button>
+  <span style="margin-left:12px">New design state:</span>
+  <button data-s="setup" class="on">Start</button><button data-s="android">Android phone</button>
+  <button data-s="connecting">Connecting</button><button data-s="screen">Sharing screen</button>
+  <button data-s="camera">Sharing camera</button><button data-s="full">TV full</button>
+</div>
+<div class="wrap" id="wrap">
+  <figure><figcaption>Current (in the app now)</figcaption><iframe src="/"></iframe></figure>
+  <figure><figcaption>New design</figcaption><iframe id="new" src="/new/?state=setup"></iframe></figure>
+</div>
+<script>
+  document.querySelectorAll('[data-s]').forEach((b) => b.addEventListener('click', () => {
+    document.querySelectorAll('[data-s]').forEach((x) => x.classList.toggle('on', x === b));
+    document.getElementById('new').src = '/new/?state=' + b.dataset.s;
+  }));
+  document.querySelectorAll('[data-w]').forEach((b) => b.addEventListener('click', () => {
+    document.querySelectorAll('[data-w]').forEach((x) => x.classList.toggle('on', x === b));
+    document.getElementById('wrap').classList.toggle('wide', b.dataset.w === 'laptop');
+  }));
+</script>
+</body>
+</html>

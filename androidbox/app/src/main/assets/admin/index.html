@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Stream Port Admin</title>
+  <link rel="stylesheet" href="/admin.css">
+  <script src="/admin.js" defer></script>
+</head>
+<body>
+  <header>
+    <div class="bar" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+    <h1>Stream Port <span>admin</span></h1>
+    <button id="logout" class="ghost" hidden>Log out</button>
+  </header>
+
+  <main>
+    <section id="login" hidden>
+      <h2>Log in</h2>
+      <p>Press the button and the TV shows a 6-digit PIN for 60 seconds.</p>
+      <button id="ask-pin">Show PIN on TV</button>
+      <form id="pin-form" autocomplete="off">
+        <input id="pin" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" placeholder="000000" aria-label="PIN">
+        <button type="submit">Log in</button>
+      </form>
+      <p id="login-msg" class="msg" role="status"></p>
+    </section>
+
+    <section id="panel" hidden>
+      <div class="card">
+        <h2>Receiver name</h2>
+        <p class="hint">What iPhones, iPads and Macs see under Screen Mirroring. <span id="box-name-hint"></span></p>
+        <form id="name-form" class="row">
+          <input id="name" maxlength="40" required aria-label="Receiver name">
+          <button type="submit">Save</button>
+        </form>
+      </div>
+
+      <div class="card">
+        <h2>Layout</h2>
+        <div class="seg" role="group" aria-label="Layout">
+          <button data-mode="dynamic">Dynamic</button>
+          <button data-mode="grid">Grid</button>
+          <button data-mode="focus">Focus</button>
+        </div>
+        <p class="hint" id="layout-hint"></p>
+      </div>
+
+      <div class="card">
+        <h2>Rebroadcast to the network</h2>
+        <p class="hint">While it is on, everyone on the LAN can watch: the TV's welcome screen while nobody shares, the
+          TV itself while someone does (720p at 12 fps, video only: made for presentations).
+          Watch in VLC: Media &gt; Open Network Stream &gt; <code id="rb-url">udp://@239.255.42.42:5004</code>.
+          Anyone on the network can watch whatever is shared; the TV and the share page say so while it is on.
+          Some Wi-Fi access points send multicast slowly and it can crowd the network.</p>
+        <label class="check"><input id="rb-on" type="checkbox"> Rebroadcast while someone shares</label>
+        <p class="hint" id="rb-status"></p>
+      </div>
+
+      <div class="card" id="miracast-card" hidden>
+        <h2>Miracast</h2>
+        <p class="hint">For Android phones and Windows laptops. Chromecast is always on and needs nothing here.
+          <strong>While Miracast is open the TV leaves the Wi-Fi:</strong> AirPlay, Chromecast and this page stop working
+          until someone presses BACK on the remote, and the TV may need its Wi-Fi reconnected in Settings &gt; Network.</p>
+        <button id="open-miracast" class="ghost">Switch the TV to Miracast</button>
+      </div>
+
+      <div class="card">
+        <h2>Limits</h2>
+        <form id="limits-form" class="limits">
+          <label>Max resolution
+            <select id="resolution">
+              <option value="720p">720p</option>
+              <option value="1080p">1080p</option>
+              <option value="1440p">1440p</option>
+              <option value="4k">4K</option>
+            </select>
+          </label>
+          <label>Max screens at once
+            <select id="max-streams"></select>
+          </label>
+          <button type="submit">Save</button>
+        </form>
+        <p class="hint" id="limits-hint">Largest picture a sender may send: 720p is 1280×720 (phones up to 720×1280), 1080p is 1920×1080 (phones up to 1080×1920), 1440p is 2560×1440, 4K is 3840×2160. 1440p and 4K allow up to 4 screens. The box decodes four 720p screens smoothly, but only about three 1080p screens or one 4K screen; past that, moving pictures stutter (phones never send 4K; 4K Macs can). The TV shows everything at 1080p. Changes apply to senders who connect next; nobody already mirroring is cut off.</p>
+      </div>
+
+      <div class="card">
+        <h2>Screens <span id="count" class="muted"></span></h2>
+        <ul id="senders"></ul>
+        <p id="empty" class="hint">Nobody is mirroring.</p>
+      </div>
+      <p id="msg" class="msg" role="status"></p>
+      <p class="hint small"><button id="logout-all" class="link">Log out every browser</button></p>
+    </section>
+  </main>
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+</body>
+</html>

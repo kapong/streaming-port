@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Share to the TV</title>
+  <link rel="stylesheet" href="/share.css">
+  <script src="/share.js" defer></script>
+</head>
+<body>
+  <main>
+    <div class="brand"><span class="mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>StreamPort
+      <span class="places" id="places" hidden></span></div>
+    <h1>Share to <span id="tv">the TV</span></h1>
+    <div class="rule" aria-hidden="true"></div>
+
+    <section id="setup">
+      <p class="lead">Your screen or camera shows up on the TV next to the others. One way only: nothing comes back
+        to you.</p>
+      <div class="card">
+        <label class="field" for="name">Your name on the TV</label>
+        <input id="name" type="text" maxlength="40" autocomplete="nickname" placeholder="e.g. Kapong's laptop">
+        <div class="choices" id="choices">
+          <button class="choice screen" id="share">
+            <span class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#30E0C4" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg></span>
+            <span><span class="t">Share screen</span>
+              <span class="s">A window, a tab or the whole screen. Tick "share audio" for sound.</span></span>
+          </button>
+          <button class="choice camera" id="camera">
+            <span class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#7AA6FF" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 10l5-3v10l-5-3z"/><rect x="2" y="6" width="13" height="12" rx="2.5"/></svg></span>
+            <span><span class="t">Share camera</span>
+              <span class="s">Front or back camera on phones.</span></span>
+          </button>
+        </div>
+        <label class="switch"><input type="checkbox" id="mic"><span>Microphone with the camera<small>Off by default:
+          a phone near the TV can echo.</small></span></label>
+        <div class="notice" id="rebroadcast-notice" hidden><span class="dot"></span><span><b>This TV is rebroadcast to
+          the network.</b> Anyone here can watch it in VLC at <code id="rebroadcast-url">udp://@239.255.42.42:5004</code>.
+          Don't share anything private.</span></div>
+      </div>
+      <p class="tips" id="setup-hint" hidden></p>
+    </section>
+
+    <section id="live" hidden>
+      <div class="card">
+        <div class="stage" id="stage">
+          <video id="preview" muted autoplay playsinline></video>
+          <span class="onair" id="onair" hidden>On the TV</span>
+        </div>
+        <p id="status" class="status" role="status" aria-live="polite"></p>
+        <div class="steps" id="steps" aria-hidden="true"><i></i><i></i><i></i></div>
+        <p id="detail" class="detail"></p>
+        <p class="keep">Keep this page open while you share. Closing it stops sharing.</p>
+        <div class="row">
+          <button id="flip" class="btn" hidden>Switch camera</button>
+          <button id="stop" class="btn stop">Stop sharing</button>
+        </div>
+      </div>
+    </section>
+
+    <p id="message" class="message" role="alert"></p>
+
+    <details>
+      <summary>Not working?</summary>
+      <ul>
+        <li>A "not private" warning on the first visit is expected: the TV makes its own certificate. Choose
+          Advanced, then Proceed.</li>
+        <li>iPhone and iPad: Screen Mirroring (Control Center) works best; Safari here needs iOS 27 or later.</li>
+        <li>Android phones: browsers can't share the screen (use Cast from the quick settings), but the camera works
+          here.</li>
+        <li>Nothing on the TV after 20 seconds? Stop, and share again.</li>
+      </ul>
+    </details>
+    <footer id="footer"></footer>
+  </main>
+</body>
+</html>

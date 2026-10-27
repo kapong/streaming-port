@@ -1,0 +1,59 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-feature android:name="android.software.leanback" android:required="true" />
+    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+
+    <!-- AirPlay control and media sockets (LAN only; the receiver refuses non-local addresses). -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <!-- Low-latency Wi-Fi lock while a screen is being mirrored. -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <!-- Rebroadcast to the LAN (off by default): screen capture, granted once over adb (appops PROJECT_MEDIA). -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- Lets the receiver bring its screen up when a phone connects (granted once over adb: appops). -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <!-- Keeps the Chromecast/Miracast name equal to the AirPlay name (granted once over adb: pm grant). -->
+    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
+    <!-- Lets it see and open Xiaomi's Miracast receiver (Android 11 package visibility). -->
+    <queries>
+        <intent>
+            <action android:name="com.xiaomi.mitv.MIRACAST" />
+        </intent>
+    </queries>
+
+    <application android:allowBackup="false" android:supportsRtl="true"
+        android:theme="@android:style/Theme.Material.NoActionBar.Fullscreen"
+        android:label="@string/app_name" android:icon="@drawable/icon" android:banner="@drawable/banner">
+        <activity android:name=".StreamActivity" android:exported="true" android:launchMode="singleTask"
+            android:screenOrientation="landscape"
+            android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenLayout|screenSize|smallestScreenSize|uiMode|density">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="com.gathin.tvhome.category.DOCK_CARD" />
+            </intent-filter>
+            <meta-data android:name="com.gathin.tvhome.card" android:resource="@xml/module_card" />
+        </activity>
+        <service android:name=".StreamService" android:exported="false"
+            android:foregroundServiceType="mediaPlayback|mediaProjection" />
+        <receiver android:name=".BootReceiver" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+        <!-- Settings over adb only: DUMP is held by the shell and the system, never by an installed app. -->
+        <receiver android:name=".SettingsReceiver" android:exported="true"
+            android:permission="android.permission.DUMP">
+            <intent-filter>
+                <action android:name="com.nailem.streamport.SET" />
+            </intent-filter>
+        </receiver>
+    </application>
+</manifest>

@@ -1,0 +1,30 @@
+<resources>
+    <string name="app_name">StreamPort</string>
+    <string name="default_receiver_name">NAIL\'EM</string>
+    <string name="channel_name">AirPlay receiver</string>
+    <string name="notification_text">Ready for AirPlay screen mirroring</string>
+    <!-- Idle screen (also what the LAN rebroadcast sends while nobody shares). <b> is drawn semibold. -->
+    <string name="idle_eyebrow">Share your screen to</string>
+    <string name="idle_limit">Up to %1$d screens at once. The layout adjusts by itself.</string>
+    <string name="apple_title">iPhone, iPad, Mac</string>
+    <string name="apple_who">AirPlay · several at once</string>
+    <string name="apple_steps"><![CDATA[Open <b>Control Center</b><br>→ <b>Screen Mirroring</b> → <b>%1$s</b>]]></string>
+    <string name="apple_fine">iPhone, iPad: swipe down from the top-right corner. Mac: the Control Center icon in the menu bar.</string>
+    <string name="web_title">Any browser</string>
+    <string name="web_who">Laptops share the screen · phones the camera</string>
+    <string name="web_scan">Scan, or open</string>
+    <string name="web_fine">Chrome, Edge, Firefox or Safari. First visit shows a certificate warning: Advanced → Proceed.</string>
+    <string name="rebroadcast_notice"><![CDATA[<b>Rebroadcast is on:</b> shared screens are also streamed to everyone on the network. Watch in VLC]]></string>
+    <string name="live_mark">\u25CF  Live on the network</string>
+    <string name="connecting">Connecting %1$s…</string>
+    <string name="pending_title">%1$s wants to share its screen</string>
+    <string name="pending_keys">OK  allow     BACK  refuse</string>
+    <string name="hint_keys">Arrows  primary     OK  dynamic / grid / focus     MENU  disconnect</string>
+    <string name="layout_grid">Grid layout</string>
+    <string name="layout_dynamic">Dynamic layout</string>
+    <string name="layout_focus">Focus: one screen     ◀ ▶  switch screens</string>
+    <string name="joined_focus">Someone joined     ◀ ▶  switch screens     OK  see all</string>
+    <string name="admin_url"><![CDATA[Admin <b>http://%1$s:%2$d</b>]]></string>
+    <string name="back_again">Press BACK again to stop all screens</string>
+    <string name="full_toast">All 4 places are taken</string>
+</resources>
