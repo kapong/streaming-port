@@ -57,7 +57,7 @@ public final class Limits {
      * Most screens allowed at each resolution. Per sender the receiver may buffer about five of its largest
      * packets (packet, keyframe cache, decoder queue): about 40 MB at 4K, so four 4K senders stay near 160 MB,
      * inside the app's 256 MB heap. The decoder is the tighter limit in practice: it plays about one 4K stream
-     * (or four 1080p) in real time, so several senders really sending 4K at once will stutter (owner's choice).
+     * (or four 1080p) in real time, so several senders really sending 4K at once will stutter (allowed on purpose).
      */
     public static int maxStreamsFor(Resolution r) {
         switch (r) {

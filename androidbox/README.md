@@ -1,6 +1,7 @@
 # Streaming Port for Android TV boxes (StreamPort)
 
-Screen-sharing receiver for Android TV boxes, built for the NAIL'EM lab's Xiaomi TV Box S (2nd gen). Up to **4
+Screen-sharing receiver for the Android TV box behind a meeting room or classroom TV (tested on the Xiaomi TV Box S,
+2nd gen). Up to **4
 screens at once** from iPhones, iPads and Macs (AirPlay) and from any browser (screen or camera, WebRTC), laid out
 automatically to use as much of the TV as possible. It appears under Screen Mirroring with the name you give it
 (the box's own device name until renamed: Settings > Device Preferences > About > Device name).
@@ -91,8 +92,8 @@ with that address, the tiles a small "Live on the network" mark, and the share p
 Idle with the welcome screen on air the box uses about 12% CPU.
 
 - TTL 1: the packets never leave the LAN segment. 7 TS packets per datagram (1316 bytes).
-- 1280x720 at 12 fps by default (`rebroadcast_res`, `rebroadcast_fps`; it is for presentations, and anything over
-  10 fps is fine by the owner); bitrate scales from 4 Mb/s at 1080p, and still screens cost almost nothing (the last frame is repeated every 100 ms for late joiners).
+- 1280x720 at 12 fps by default (`rebroadcast_res`, `rebroadcast_fps`; it is for presentations, where anything over
+  10 fps is fine); bitrate scales from 4 Mb/s at 1080p, and still screens cost almost nothing (the last frame is repeated every 100 ms for late joiners).
 - Capture: MediaProjection mirror display into an RGBA ImageReader, libyuv to I420, the hardware AVC encoder,
   `rebroadcast/TsMuxer.java`. The encoder's own surface input manages only about 10 MP/s on this box (1080p at
   5 fps), hence the CPU conversion.
@@ -109,7 +110,7 @@ Mb/s and lost TS packets (from the continuity counters).
 
 - Runs in the background from boot. When a sender connects, the TV switches to Stream Port; when the last one
   leaves, it goes back to Home.
-- Senders are accepted automatically (owner's choice). Anyone on the TV's Wi-Fi can show their screen; only LAN
+- Senders are accepted automatically (by default, so a meeting starts without anyone at the remote). Anyone on the TV's Wi-Fi can show their screen; only LAN
   addresses are accepted, and at most 4 at a time by default (others are refused until a place frees up).
 - **Layouts**: *dynamic* (default) makes the primary screen the biggest and fits the rest around it to use the most
   of the TV; *grid* gives every screen an equal cell. Pictures keep their aspect ratio and are never cropped.

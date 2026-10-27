@@ -1,19 +1,19 @@
 # Stream Port security review
 
-Stream Port listens on a lab Wi-Fi that many students share. Every byte it reads from the network can come from
-any of them. This file covers what was reviewed, what was fixed, and what is accepted on purpose.
+Stream Port listens on a shared Wi-Fi (a meeting room, an office, a classroom) that many people use. Every byte it
+reads from the network can come from any of them. This file covers what was reviewed, what was fixed, and what is accepted on purpose.
 
 ## Threat model
 
 - **Who can reach it**: any host on the TV's LAN, on TCP 7000 (AirPlay control), the per-sender video ports, the
   UDP audio ports, and TCP 8089 (admin page). Every port refuses addresses that aren't local (private, link-local,
   loopback, ULA, CGNAT), so a port forward from the internet gets nothing.
-- **Accepted by the owner's choice**: senders are let in without asking, so anyone on the Wi-Fi can put their
+- **Accepted by design (the default)**: senders are let in without asking, so anyone on the Wi-Fi can put their
   screen on the TV (up to the stream limit). `ask=true` brings back on-screen approval.
 - **What must not happen**: a sender reaching beyond its own tile (injecting into, tearing down or hijacking
   another sender), crashing or freezing the receiver, exhausting the 2 GB box, or anyone without the on-TV PIN
   changing settings or kicking people.
-- **Out of scope**: adb over the network (the owner leaves it on while working on the box).
+- **Out of scope**: adb over the network (turn it off once the box is set up).
 
 ## 1. Code taken from java-airplay (MIT)
 
@@ -59,8 +59,8 @@ trusts them for authentication.
 
 ## 3. Admin page (port 8089)
 
-- **Login**: a 6-digit PIN shown on the TV for 60 s on request. Whoever can see the TV can log in (the owner's
-  choice). Five tries per PIN; a new PIN at most every 15 s; 20 wrong guesses lock logins for 15 minutes.
+- **Login**: a 6-digit PIN shown on the TV for 60 s on request. Whoever can see the TV can log in (by
+  design). Five tries per PIN; a new PIN at most every 15 s; 20 wrong guesses lock logins for 15 minutes.
   Comparison is constant-time.
 - **Sessions**: 32 random bytes in an `HttpOnly; SameSite=Strict` cookie for 30 days. The box stores only SHA-256
   hashes, at most 20. "Log out every browser" clears them all.
@@ -110,7 +110,7 @@ isolation, BPlist and FairPlay checks were found sound. Findings and fixes:
 | 3 | Admin page slowloris: 10 s timeout per byte, 8 connections | Whole-request deadline (10 s); 4 connections per address |
 | 4 | Deeply nested JSON could overflow the stack and kill the app | Bodies capped at 512 bytes, nesting over 4 refused before parsing; both servers' connection threads catch `Throwable` |
 | 5 | One host could fill every place with empty sessions | At most 2 senders per address; a session must send real video (codec or frame packets) within 20 s |
-| 6 | Worst-case buffering at 4K × 8 streams exceeded the 256 MB heap | 1440p and 4K allow at most 4 screens (about 160 MB worst case at 4K; first set to 2 for 4K, raised to 4 at the owner's request); decoder queue sized to two of the sender's largest packets |
+| 6 | Worst-case buffering at 4K × 8 streams exceeded the 256 MB heap | 1440p and 4K allow at most 4 screens (about 160 MB worst case at 4K; first set to 2 for 4K, raised to 4 later); decoder queue sized to two of the sender's largest packets |
 | 7 | Lowering the limits cut off senders already mirroring (contrary to the page's own text) | Each session keeps the limits in force when it joined |
 | 8 | With `ask=true`, approval was remembered by the sender-claimed device ID | Remembered by device ID and address together |
 | 9 | UDP audio can still be spoofed by someone who captured the session setup on the shared Wi-Fi | Inherent (AirPlay audio has no MAC); the source-port lock is the practical defence. Accepted |
@@ -119,12 +119,12 @@ isolation, BPlist and FairPlay checks were found sound. Findings and fixes:
 | 12 | Long Thai names could exceed the mDNS label length | Names capped at 50 bytes of UTF-8 (about 16 Thai letters) |
 
 Verified on the box after the fixes: a Host with another IP gets 421; a second address can't replace or burn the
-owner's PIN and is locked out after 5 wrong guesses while the owner's PIN stays valid; a 200-deep JSON body gets
+PIN another browser asked for and is locked out after 5 wrong guesses while that PIN stays valid; a 200-deep JSON body gets
 400 and the app keeps running; a third sender from one address is refused.
 
 ## 7. Browser sharing (WebRTC, WHIP) and its audit (Fable)
 
-Port 9443, HTTPS with a certificate the box makes itself (owner's choice; each device warns once). One way: the TV
+Port 9443, HTTPS with a certificate the box makes itself (by design: no setup, each device warns once). One way: the TV
 only receives. A share is a screen or a camera, sent by the share page or any WHIP sender.
 
 Built in from the start: LAN-only addresses, Host must be the box's own IP (no DNS rebinding), POST needs
@@ -145,7 +145,7 @@ Audit findings and fixes:
 | 7 | One accept error ended the server for good (share, and the same pattern in AirPlay and admin) | All three accept loops log, pause briefly and carry on |
 | 8 | An `Error` while answering leaked a PeerConnection | The share is always closed if no answer was made |
 | 9 | A certificate made before Wi-Fi was up named no IP, and every renewal changed the key | Renewals keep the key; the certificate is reissued when the box's address changes while running |
-| 10 | Info: `pc` not volatile; a frozen picture keeps a place (as with AirPlay); students are taught to click through a certificate warning | `pc` volatile; the rest accepted and noted here |
+| 10 | Info: `pc` not volatile; a frozen picture keeps a place (as with AirPlay); people are taught to click through a certificate warning | `pc` volatile; the rest accepted and noted here |
 
 Accepted: the self-signed certificate means someone able to intercept traffic on the Wi-Fi (ARP spoofing) could proxy
 the page and learn a share's secret URL. Same class as the plain-HTTP admin page: LAN only, documented.

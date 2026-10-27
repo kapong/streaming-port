@@ -38,7 +38,7 @@ import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
 
 /**
- * The share page's TLS certificate: self-signed by the box (the owner's choice), so browsers warn once per device.
+ * The share page's TLS certificate: self-signed by the box (no setup needed), so browsers warn once per device.
  * Browsers only allow screen sharing on HTTPS pages, which is the whole reason for it.
  * <p>
  * EC P-256, valid 397 days (Apple rejects longer-lived TLS certificates even when the user accepts them), with the

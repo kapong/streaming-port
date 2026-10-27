@@ -36,7 +36,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * PIN gives the browser a random session token in an HttpOnly, SameSite=Strict cookie for 30 days; the box keeps
  * only SHA-256 hashes of tokens. Every API call needs that cookie and an {@code X-Admin: 1} header, which a
  * cross-site form can't send. Requests whose Host isn't an IP address or a {@code .local} name are refused, which
- * stops DNS-rebinding pages from reaching the API through a student's browser.
+ * stops DNS-rebinding pages from reaching the API through a visitor's browser.
  */
 public final class AdminServer {
 
@@ -498,7 +498,7 @@ public final class AdminServer {
             }
             boolean live = pin != null && now <= pinExpires;
             // Only the browser that asked for the PIN can use it; a guess from anywhere else is simply wrong
-            // (and counts against that address), so it can't burn the real owner's PIN.
+            // (and counts against that address), so it can't burn the PIN someone else asked for.
             ok = live && from.equals(pinOwner) && MessageDigest.isEqual(
                     pin.getBytes(StandardCharsets.US_ASCII), given.getBytes(StandardCharsets.US_ASCII));
             if (ok) {

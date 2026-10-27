@@ -9,7 +9,7 @@ STATE = {
     "maxStreamsFor": {"720p": 8, "1080p": 4, "1440p": 2, "4k": 1},
     "rebroadcast": {"enabled": True, "live": True, "mirroring": True, "url": "udp://@239.255.42.42:5004"},
     "senders": [
-        {"id": 1, "kind": "AirPlay", "name": "Lab meeting", "model": "Mac14,2", "address": "192.168.1.31",
+        {"id": 1, "kind": "AirPlay", "name": "Weekly meeting", "model": "Mac14,2", "address": "192.168.1.31",
          "width": 1280, "height": 720, "waiting": False, "quality": "good", "fps": 30, "mbps": 2.1, "jitterMs": 4},
         {"id": 2, "kind": "Browser", "name": "Code review", "model": "Chrome", "address": "192.168.1.44",
          "width": 1280, "height": 720, "waiting": False, "quality": "good", "fps": 30, "mbps": 1.4, "jitterMs": 6},

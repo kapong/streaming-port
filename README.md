@@ -5,7 +5,7 @@
   </picture>
 </p>
 
-<p align="center">Share screens to a TV, several at once, laid out automatically. Built for the NAIL'EM lab.</p>
+<p align="center">Turn the TV in a meeting room or classroom into a shared screen: several people share at once, from iPhones, iPads, Macs or any browser, and the TV lays them out automatically. No app to install on the senders.</p>
 
 ![Four screens on the TV: a slide, code, a phone and a dashboard, laid out automatically](docs/dynamic.png)
 

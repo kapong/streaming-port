@@ -45,7 +45,7 @@ import javax.net.ssl.SSLSocket;
  * <li>{@code DELETE} that URL ends the share. Nobody else knows it.</li>
  * <li>No trickle ICE ({@code PATCH} is 405): offers and answers carry all their candidates.</li>
  * </ul>
- * Like AirPlay, senders are accepted without asking (the owner's choice) within the same limits: LAN only,
+ * Like AirPlay, senders are accepted without asking (the default) within the same limits: LAN only,
  * {@link Limits#maxStreams} screens, {@link Hub#MAX_PER_HOST} per address, ten offers per address per minute.
  */
 public final class ShareServer {

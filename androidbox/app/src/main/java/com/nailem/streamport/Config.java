@@ -45,7 +45,7 @@ final class Config {
 
     /**
      * Ask on the TV before showing a sender that hasn't been approved since the receiver started. Off by default
-     * (the lab wants senders to appear at once): anyone on the TV's Wi-Fi can then show their screen.
+     * (senders appear at once, so a meeting starts without anyone at the remote): anyone on the TV's Wi-Fi can then show their screen.
      */
     static boolean ask(Context c) {
         return prefs(c).getBoolean("ask", false);
@@ -53,7 +53,7 @@ final class Config {
 
     /**
      * Rebroadcast defaults: light enough next to four 720p screens (measured 2026-10-27: CPU 78% at 12 fps, 79% at
-     * 15). It is for presentations, so 12 fps is plenty (owner's call: anything over 10 is fine).
+     * 15). It is for presentations, so 12 fps is plenty (anything over 10 is fine).
      */
     static final int REBROADCAST_HEIGHT = 720;
     static final int REBROADCAST_FPS = 12;
