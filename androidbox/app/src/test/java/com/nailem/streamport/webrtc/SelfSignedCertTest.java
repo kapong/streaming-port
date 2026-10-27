@@ -33,7 +33,7 @@ public class SelfSignedCertTest {
         cert.checkValidity();
         assertEquals(3, cert.getVersion());
         assertEquals("SHA256withECDSA", cert.getSigAlgName());
-        assertTrue(cert.getSubjectX500Principal().getName().contains("NAIL'EM StreamPort share"));
+        assertTrue(cert.getSubjectX500Principal().getName().contains("StreamPort share"));
         boolean hasIp = false;
         Collection<List<?>> sans = cert.getSubjectAlternativeNames();
         for (List<?> san : sans) {

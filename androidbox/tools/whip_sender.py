@@ -3,7 +3,7 @@
 Sends an ffmpeg test pattern (and a tone) the way the share page does: SDP offer by POST /whip, answer back,
 media one way, DELETE the resource at the end. Uses aiortc (pip install aiortc).
 
-    .venv/bin/python -I streamport/tools/whip_sender.py 192.168.1.23 --name "WHIP 1" --size 1280x720 --seconds 20
+    .venv/bin/python -I streamport/tools/whip_sender.py BOX_IP --name "WHIP 1" --size 1280x720 --seconds 20
 """
 
 import argparse

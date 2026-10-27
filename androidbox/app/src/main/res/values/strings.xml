@@ -1,6 +1,6 @@
 <resources>
     <string name="app_name">StreamPort</string>
-    <string name="default_receiver_name">NAIL\'EM</string>
+    <string name="default_receiver_name">StreamPort</string>
     <string name="channel_name">AirPlay receiver</string>
     <string name="notification_text">Ready for AirPlay screen mirroring</string>
     <!-- Idle screen (also what the LAN rebroadcast sends while nobody shares). <b> is drawn semibold. -->

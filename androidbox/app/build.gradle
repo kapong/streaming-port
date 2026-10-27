@@ -8,8 +8,8 @@ android {
         applicationId 'com.nailem.streamport'
         minSdk 30
         targetSdk 34
-        versionCode 3
-        versionName '1.2'
+        versionCode 4
+        versionName '1.3'
         // The box's userland is 32-bit ARM only; shipping the other ABIs of libwebrtc would add 37 MB for nothing.
         ndk { abiFilters 'armeabi-v7a' }
     }

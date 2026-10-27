@@ -3,7 +3,9 @@
 Screen-sharing receiver for Android TV boxes, built for the NAIL'EM lab's Xiaomi TV Box S (2nd gen). Up to **4
 screens at once** from iPhones, iPads and Macs (AirPlay) and from any browser (screen or camera, WebRTC), laid out
 automatically to use as much of the TV as possible. It appears under Screen Mirroring with the name you give it
-(**NAIL'EM** until renamed).
+(the box's own device name until renamed: Settings > Device Preferences > About > Device name).
+
+![Four screens on the TV, laid out automatically](../docs/dynamic.png)
 
 ## Install on a box (release APK)
 
@@ -26,6 +28,11 @@ the limits. On a box like the Xiaomi TV Box S, **720p and 4 screens** keeps CPU 
 below); 1080p suits 1 to 3 screens. Browsers share at `https://<box-ip>:9443` (the TV shows it as a QR code).
 Updates: install a newer release the same way (`adb install -r`); settings stay.
 
+The receiver's name starts as the box's own device name (Settings > Device Preferences > About > Device name), so
+every box shows up under its own name with no setup. The box's address can change (DHCP): nothing in the app is tied
+to it. The TV's welcome screen always shows the current addresses, and the share page's certificate is remade when
+the address changes. `BOX_IP` in the examples below stands for that address.
+
 Chromecast and Miracast can't be tiled. Google signs every Cast receiver's certificate, and a Miracast receiver needs a
 permission only Xiaomi's own system apps get. Both still work full screen through the box's built-in receivers, and
 Stream Port works alongside them:
@@ -40,7 +47,7 @@ Stream Port works alongside them:
 
 ## Browser sharing (WebRTC, WHIP)
 
-Open `https://192.168.1.23:9443` (the TV's idle screen shows it as a QR code), type a name, then:
+Open `https://BOX_IP:9443` (the TV's idle screen shows it as a QR code), type a name, then:
 
 - **Share screen**: laptops (Windows, Mac, Linux, ChromeOS) and iPhones/iPads on iOS 27+. Pick a screen, window or tab.
 - **Share camera**: any of those, and **Android phones too** (their browsers can't share the screen, but can share the
@@ -54,14 +61,14 @@ The page (`assets/share/`) has the TV welcome screen's look (Outfit, served as `
 choices (screen, camera), the microphone switch, the rebroadcast warning with its address, then a preview with a
 three-step progress bar and "On the TV now". Design mock: `mock/share/` (compare old and new at
 `http://localhost:8766/new/compare.html` after `python3 -I androidbox/mock/share_server.py`). To test the real
-page end to end without the self-signed certificate, `mock/share_server.py --box https://192.168.1.23:9443` serves it
+page end to end without the self-signed certificate, `mock/share_server.py --box https://BOX_IP:9443` serves it
 on `http://localhost:8767` and passes `/config` and `/whip` to the TV.
 
 - **One way only**, WHIP style (RFC 9725): the page POSTs its SDP offer to `/whip` (`application/sdp`), gets `201`, the
   answer and a secret `Location`; DELETE on that URL ends the share. The TV sends nothing back; the page shows only a
   local preview of what it shares and its status.
 - **Any WHIP sender works**, e.g. OBS Studio 30+ (Settings > Stream > Service "WHIP", server
-  `https://192.168.1.23:9443/whip?name=OBS`; OBS may need the certificate trusted).
+  `https://BOX_IP:9443/whip?name=OBS`; OBS may need the certificate trusted).
 - **Certificate**: self-signed by the box (EC P-256, 397 days, the box's IP in it), so each device warns once: Advanced,
   then Proceed. Browsers only allow screen sharing on https pages.
 - **Engine**: Google's libwebrtc (`stream-webrtc-android` 1.3.9), loaded on the first share. Only the box's own
@@ -127,11 +134,12 @@ goes back to Home after 10 minutes with nobody sharing.
 
 ## Admin page
 
-`http://192.168.1.23:8089` from any browser on the LAN (the TV's idle screen shows the address). Press "Show PIN on
+`http://BOX_IP:8089` from any browser on the LAN (the TV's idle screen shows the address). Press "Show PIN on
 TV", type the 6-digit code from the TV, and the browser stays logged in for 30 days. From there: rename the
 receiver, switch layout, pick the primary screen, set the max resolution and max screens, see each sender's
 address, resolution and network quality (Mb/s, fps, jitter), kick a sender, and switch the TV to Miracast. Every
-save shows what changed and when it applies. Details in `SECURITY.md`.
+save shows what changed and when it applies. Details in `SECURITY.md`. To work on the page without a TV,
+`python3 -I androidbox/mock/admin_server.py` serves it at `http://127.0.0.1:8768` with four made-up senders.
 
 ## Build and install
 
@@ -155,7 +163,7 @@ Installing restarts the receiver and cuts anyone mirroring, so check first:
 ## Settings (adb only)
 
 ```bash
-adb shell am broadcast -n com.nailem.streamport/.SettingsReceiver -a com.nailem.streamport.SET --es key name --es value "NAIL'EM"
+adb shell am broadcast -n com.nailem.streamport/.SettingsReceiver -a com.nailem.streamport.SET --es key name --es value "Meeting Room"
 adb shell am broadcast -n com.nailem.streamport/.SettingsReceiver -a com.nailem.streamport.SET --es key ask --es value true
 ```
 
@@ -170,8 +178,8 @@ the admin page applies them without a restart.
 
 ```bash
 pip install aiortc
-python3 -I androidbox/tools/whip_sender.py 192.168.1.23 --name "WHIP 1" --size 1920x1080 --seconds 30
-python3 -I androidbox/tools/whip_sender.py 192.168.1.23 --name "VP8" --codec VP8
+python3 -I androidbox/tools/whip_sender.py BOX_IP --name "WHIP 1" --size 1920x1080 --seconds 30
+python3 -I androidbox/tools/whip_sender.py BOX_IP --name "VP8" --codec VP8
 ```
 
 AirPlay:
@@ -180,8 +188,9 @@ AirPlay:
 
 ```bash
 pip install cryptography
-python3 -I androidbox/tools/test_sender.py 192.168.1.23 --name L1 --size 1920x1080 --seconds 30
-python3 -I androidbox/tools/test_sender.py 192.168.1.23 --name P1 --size 886x1920 --pattern 1
+python3 -I androidbox/tools/test_sender.py BOX_IP --name L1 --size 1920x1080 --seconds 30
+python3 -I androidbox/tools/test_sender.py BOX_IP --name P1 --size 886x1920 --pattern 1
+python3 -I androidbox/tools/test_sender.py BOX_IP --name Slides --image slide.png   # a picture instead of a pattern
 ```
 
 One machine can show at most 2 senders (a per-address limit). For more, run senders from a second machine, or

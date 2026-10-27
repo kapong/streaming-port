@@ -4,8 +4,8 @@ Does what an iPhone does on the wire: GET /info, pair-setup, pair-verify, fp-set
 exchange from java-airplay's test client), SETUP with ekey/eiv, SETUP video, then streams an H.264 test pattern
 over the encrypted mirroring connection, with /feedback keep-alives on the control connection.
 
-    .venv/bin/python -I streamport/tools/test_sender.py 192.168.1.23 --name "Test 1" --size 1280x720
-    .venv/bin/python -I streamport/tools/test_sender.py 192.168.1.23 --name "Phone" --size 886x1920 --seconds 30
+    .venv/bin/python -I streamport/tools/test_sender.py BOX_IP --name "Test 1" --size 1280x720
+    .venv/bin/python -I streamport/tools/test_sender.py BOX_IP --name "Phone" --size 886x1920 --seconds 30
 
 Needs ffmpeg on PATH and the `cryptography` package.
 """
@@ -123,11 +123,14 @@ def handshake(rtsp, name):
 PATTERNS = ["testsrc2", "smptehdbars", "testsrc", "rgbtestsrc"]
 
 
-def encode(size, seconds_of_video, fps, pattern_index):
+def encode(size, seconds_of_video, fps, pattern_index, image=None):
     w, h = size
     out = tempfile.NamedTemporaryFile(suffix=".h264", delete=False).name
-    pattern = f"{PATTERNS[pattern_index % len(PATTERNS)]}=size={w}x{h}:rate={fps}"
-    subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-f", "lavfi", "-i", pattern, "-t", str(seconds_of_video),
+    if image:   # a still (a slide, a screenshot), scaled to the size
+        source = ["-loop", "1", "-framerate", str(fps), "-i", image, "-vf", f"scale={w}:{h}"]
+    else:
+        source = ["-f", "lavfi", "-i", f"{PATTERNS[pattern_index % len(PATTERNS)]}=size={w}x{h}:rate={fps}"]
+    subprocess.run(["ffmpeg", "-loglevel", "error", "-y", *source, "-t", str(seconds_of_video),
                     "-c:v", "libx264", "-profile:v", "high", "-preset", "veryfast", "-tune", "zerolatency",
                     "-pix_fmt", "yuv420p", "-g", str(fps * 2), "-bf", "0", "-x264-params", "aud=1",
                     "-f", "h264", out], check=True)
@@ -196,11 +199,12 @@ def main():
     ap.add_argument("--fps", type=int, default=30)
     ap.add_argument("--seconds", type=int, default=20)
     ap.add_argument("--pattern", type=int, default=0, help="0-3: which ffmpeg test pattern")
+    ap.add_argument("--image", help="send this picture instead of a test pattern")
     ap.add_argument("--jitter", type=int, default=0, help="add up to this many ms of random send delay")
     args = ap.parse_args()
     w, h = map(int, args.size.split("x"))
 
-    video = encode((w, h), 4, args.fps, args.pattern)
+    video = encode((w, h), 4, args.fps, args.pattern, args.image)
     sps, pps, units = access_units(split_nals(video))
 
     rtsp = Rtsp(args.host, args.port)

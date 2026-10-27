@@ -3,7 +3,7 @@
 Joins the multicast group, reads the MPEG-TS, and counts video frames (PES starts on the video PID) and gaps in
 the TS continuity counters (each gap = lost TS packets). No video decoding.
 
-    python3 -I streamport/tools/multicast_probe.py --seconds 30 --iface 192.168.1.25
+    python3 -I streamport/tools/multicast_probe.py --seconds 30 --iface YOUR_MAC_IP
 """
 
 import argparse

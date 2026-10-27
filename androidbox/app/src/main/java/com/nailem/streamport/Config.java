@@ -24,9 +24,23 @@ final class Config {
         return c.getSharedPreferences("config", Context.MODE_PRIVATE);
     }
 
-    /** The name iPhones list under Screen Mirroring. */
+    /**
+     * The name iPhones list under Screen Mirroring. Until someone renames it, the box's own device name (the one
+     * Chromecast shows), then its model, so a new box needs no setup to tell it apart from the others.
+     */
     static String name(Context c) {
-        return prefs(c).getString("name", c.getString(R.string.default_receiver_name));
+        String n = prefs(c).getString("name", null);
+        if (n != null) return n;
+        for (String d : new String[] {BoxName.get(c), android.os.Build.MODEL}) {
+            d = cleanName(d == null ? "" : d);
+            if (fits(d)) return d;
+        }
+        return c.getString(R.string.default_receiver_name);
+    }
+
+    // mDNS labels are 63 bytes and the AirTunes record adds "XXXXXXXXXXXX@" (13); Thai is 3 bytes a letter.
+    private static boolean fits(String n) {
+        return !n.isEmpty() && n.length() <= 40 && n.getBytes(java.nio.charset.StandardCharsets.UTF_8).length <= 50;
     }
 
     /**
@@ -106,8 +120,7 @@ final class Config {
         switch (key) {
             case "name":
                 String n = cleanName(value);
-                // mDNS labels are 63 bytes and the AirTunes record adds "XXXXXXXXXXXX@" (13); Thai is 3 bytes a letter.
-                if (n.isEmpty() || n.length() > 40 || n.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 50) {
+                if (!fits(n)) {
                     throw new IllegalArgumentException("name: 1 to 40 characters (about 16 in Thai)");
                 }
                 e.putString("name", n);

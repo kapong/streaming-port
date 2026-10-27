@@ -158,7 +158,7 @@ final class SelfSignedCert {
         new SecureRandom().nextBytes(serial);
         serial[0] &= 0x7F; // positive
         long now = System.currentTimeMillis();
-        byte[] name = seq(set(seq(oid(2, 5, 4, 3), tlv(0x0C, "NAIL'EM StreamPort share".getBytes(StandardCharsets.UTF_8)))));
+        byte[] name = seq(set(seq(oid(2, 5, 4, 3), tlv(0x0C, "StreamPort share".getBytes(StandardCharsets.UTF_8)))));
 
         List<byte[]> sans = new ArrayList<>();
         for (InetAddress a : addresses) sans.add(tlv(0x87, a.getAddress()));

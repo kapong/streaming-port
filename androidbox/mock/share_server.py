@@ -1,14 +1,14 @@
 """Serves the share page for design work on this Mac: the app's real page at / and the redesign mock at /new/.
 /config answers like the TV does; nothing is sent anywhere. python3 -I streamport/mock/share_server.py
 
-With --box https://192.168.1.23:9443 (port 8767), /config and /whip go to that TV instead, so the page can be tested
+With --box https://BOX_IP:9443 (port 8767), /config and /whip go to that TV instead, so the page can be tested
 end to end from localhost (a secure context) without the TV's self-signed certificate in the browser."""
 import http.server, json, os, ssl, sys, urllib.request
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 REAL = os.path.join(ROOT, "..", "app", "src", "main", "assets", "share")
 NEW = os.path.join(ROOT, "share")
-CONFIG = {"name": "NAIL'EM", "maxWidth": 1280, "maxHeight": 720, "fps": 30, "free": 3, "max": 4, "rebroadcast": True}
+CONFIG = {"name": "Meeting Room", "maxWidth": 1280, "maxHeight": 720, "fps": 30, "free": 3, "max": 4, "rebroadcast": True}
 
 
 BOX = sys.argv[sys.argv.index("--box") + 1] if "--box" in sys.argv else None
