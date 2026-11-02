@@ -50,9 +50,10 @@ public final class Hub {
     private final AtomicBoolean notifyPending = new AtomicBoolean();
     private final List<Screen> screens = new ArrayList<>();
     private final CopyOnWriteArrayList<Listener> listeners = new CopyOnWriteArrayList<>();
-    /** Approvals since the receiver started (only with ask=true); see {@link Screen#approvalKey}. */
+    /** Approvals since the receiver started (only with ask=true, never with always); see {@link Screen#approvalKey}. */
     private final Set<String> approved = new HashSet<>();
-    private volatile boolean askBeforeShowing;
+    private boolean askBeforeShowing;
+    private boolean askEveryShare;
     private int nextId = 1;
     private Screen audible;
     /** The screen the remote's arrows (or the admin page) picked; it is biggest in DYNAMIC and the one heard. */
@@ -63,8 +64,11 @@ public final class Hub {
     private Hub() {
     }
 
-    public void setAskBeforeShowing(boolean ask) {
+    /** always (ask=always, only with ask): every share waits for OK, and senders approved so far are forgotten. */
+    public synchronized void setAskBeforeShowing(boolean ask, boolean always) {
         askBeforeShowing = ask;
+        askEveryShare = ask && always;
+        if (askEveryShare) approved.clear();
     }
 
     public void setAudioSink(Session.AudioSink sink) {
@@ -167,7 +171,9 @@ public final class Hub {
         synchronized (this) {
             if (!hasRoomFor(s.peer())) return false;
             String key = s.approvalKey();
-            if (!askBeforeShowing || (key != null && approved.contains(key))) s.setState(Screen.State.ALLOWED);
+            if (!askBeforeShowing || (key != null && approved.contains(key))) {
+                s.setState(Screen.State.ALLOWED);
+            }
             screens.add(s);
             if (primary == null) setPrimary(s);
         }
@@ -200,7 +206,7 @@ public final class Hub {
             if (s.isClosed()) return;
             s.setState(Screen.State.ALLOWED);
             String key = s.approvalKey();
-            if (key != null) approved.add(key);
+            if (key != null && !askEveryShare) approved.add(key);
         }
         notifyChanged();
     }

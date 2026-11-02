@@ -9,7 +9,8 @@ reads from the network can come from any of them. This file covers what was revi
   UDP audio ports, and TCP 8089 (admin page). Every port refuses addresses that aren't local (private, link-local,
   loopback, ULA, CGNAT), so a port forward from the internet gets nothing.
 - **Accepted by design (the default)**: senders are let in without asking, so anyone on the Wi-Fi can put their
-  screen on the TV (up to the stream limit). `ask=true` brings back on-screen approval.
+  screen on the TV (up to the stream limit). `ask=true` brings back on-screen approval; `ask=always` asks for
+  every new connection (a sender reconnecting mid-share included) and remembers no approval.
 - **What must not happen**: a sender reaching beyond its own tile (injecting into, tearing down or hijacking
   another sender), crashing or freezing the receiver, exhausting the 2 GB box, or anyone without the on-TV PIN
   changing settings or kicking people.
@@ -53,7 +54,9 @@ exceed the cap. The availability findings, all fixed:
 | 10 | Invalid Ed25519 point threw instead of 400 | Answers 400 |
 
 Notes from the same audit, accepted: with `ask=true`, approval is remembered by the sender-claimed device ID
-(spoofable; not the default). Any sender brings Stream Port to the front (that is the feature). The two crypto
+(spoofable; not the default). `ask=always` remembers nothing: every new connection, including a sender
+reconnecting mid-share, waits for OK. Any sender brings Stream
+Port to the front (that is the feature). The two crypto
 libraries (`eddsa` 0.3.0, `curve25519-java` 0.5.0) are unmaintained with no CVE known to the auditor; nothing here
 trusts them for authentication.
 

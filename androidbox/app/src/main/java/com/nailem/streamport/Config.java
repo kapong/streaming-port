@@ -30,12 +30,20 @@ final class Config {
      */
     static String name(Context c) {
         String n = prefs(c).getString("name", null);
-        if (n != null) return n;
+        if (n != null) {
+            n = cleanName(n); // again: a name stored before dots were mapped
+            if (fits(n)) return n;
+        }
         for (String d : new String[] {BoxName.get(c), android.os.Build.MODEL}) {
             d = cleanName(d == null ? "" : d);
             if (fits(d)) return d;
         }
         return c.getString(R.string.default_receiver_name);
+    }
+
+    /** Whether Stream Port stored a name itself (a rename), not just took the box's. */
+    static boolean hasStoredName(Context c) {
+        return prefs(c).contains("name");
     }
 
     // mDNS labels are 63 bytes and the AirTunes record adds "XXXXXXXXXXXX@" (13); Thai is 3 bytes a letter.
@@ -49,6 +57,15 @@ final class Config {
      */
     static boolean ask(Context c) {
         return prefs(c).getBoolean("ask", false);
+    }
+
+    /**
+     * ask=always: ask before every share and remember nothing, so a sender approved a minute ago is asked again,
+     * as is one reconnecting mid-share. Stored as its own boolean beside "ask", which installs before it already
+     * hold as a boolean.
+     */
+    static boolean askAlways(Context c) {
+        return ask(c) && prefs(c).getBoolean("ask_always", false);
     }
 
     /**
@@ -126,7 +143,19 @@ final class Config {
                 e.putString("name", n);
                 break;
             case "ask":
-                e.putBoolean("ask", Boolean.parseBoolean(value));
+                switch (value.trim().toLowerCase(Locale.ROOT)) {
+                    case "always":
+                        e.putBoolean("ask", true).putBoolean("ask_always", true);
+                        break;
+                    case "true":
+                        e.putBoolean("ask", true).putBoolean("ask_always", false);
+                        break;
+                    case "false":
+                        e.putBoolean("ask", false).putBoolean("ask_always", false);
+                        break;
+                    default:
+                        throw new IllegalArgumentException("ask: true, false or always");
+                }
                 break;
             case "rebroadcast":
                 e.putBoolean("rebroadcast", Boolean.parseBoolean(value));
@@ -172,15 +201,18 @@ final class Config {
 
     /**
      * A name fit for an mDNS service: printable characters only (no control or invisible formatting characters,
-     * which could spoof another receiver in a sender's list), trimmed.
+     * which could spoof another receiver in a sender's list), trimmed. Dots become spaces and leading underscores
+     * go: JmDNS doesn't escape dots in instance names, so "Room 3.2" would split into labels, and it drops a
+     * leading "_".
      */
     static String cleanName(String value) {
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < value.length(); i++) {
             char c = value.charAt(i);
-            if (!Character.isISOControl(c) && Character.getType(c) != Character.FORMAT) sb.append(c);
+            if (c == '.') sb.append(' ');
+            else if (!Character.isISOControl(c) && Character.getType(c) != Character.FORMAT) sb.append(c);
         }
-        return sb.toString().trim();
+        return sb.toString().replaceAll(" {2,}", " ").replaceFirst("^[_ ]+", "").trim();
     }
 
     /**

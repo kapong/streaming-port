@@ -58,9 +58,56 @@ public final class StreamService extends Service implements Hub.Listener, AdminS
         c.startForegroundService(new Intent(c, StreamService.class));
     }
 
-    static void restart(Context c) {
-        c.stopService(new Intent(c, StreamService.class));
-        start(c);
+    /**
+     * Applies settings just written to {@link Config}. While the service runs, in place: stopping it would drop the
+     * app's foreground-service standing, and from a broadcast receiver Android 12+ then refuses to start it again
+     * (ForegroundServiceStartNotAllowedException). Otherwise starts it; if Android refuses that from the background,
+     * the settings apply at its next start and this returns false. Main thread.
+     */
+    static boolean restart(Context c) {
+        StreamService s = running;
+        if (s != null) {
+            s.reload();
+            return true;
+        }
+        try {
+            start(c);
+            return true;
+        } catch (IllegalStateException e) { // ForegroundServiceStartNotAllowedException
+            Log.w(TAG, "receiver not started from the background; the settings apply at its next start: " + e);
+            return false;
+        }
+    }
+
+    /** Re-reads {@link Config} and changes only what differs; senders already mirroring stay connected. Main thread. */
+    private void reload() {
+        if (advertiser == null) { // the receiver did not start and is stopping; the next start reads Config
+            Log.w(TAG, "settings not reloaded: the receiver did not start");
+            return;
+        }
+        Hub.get().setAskBeforeShowing(Config.ask(this), Config.askAlways(this));
+        Config.applyLimits(this);
+        String name = Config.name(this);
+        if (!name.equals(server.name())) applyName(name);
+        boolean on = Config.rebroadcast(this);
+        boolean changed = rebroadcaster != null && (rebroadcaster.height() != Config.rebroadcastHeight(this)
+                || rebroadcaster.fps() != Config.rebroadcastFps(this));
+        if (!on || changed) stopRebroadcast();
+        if (on) startRebroadcast(); // after a stop, once the old encoder has let go
+        sendIdleScreen();
+        Hub.get().refresh();
+        Log.i(TAG, "settings reloaded");
+    }
+
+    /** New mDNS records (and notification) under the new name; senders already mirroring stay connected. Main thread. */
+    private void applyName(String name) {
+        if (running != this) return; // posted from the admin page after the service went away
+        server.setName(name);
+        receiverName = name;
+        advertiser.start(server, port); // closes the old records first
+        notification = Notification.Builder.recoverBuilder(this, notification).setContentTitle(name).build();
+        getSystemService(NotificationManager.class).notify(1, notification);
+        sendIdleScreen();
     }
 
     @Override
@@ -83,13 +130,18 @@ public final class StreamService extends Service implements Hub.Listener, AdminS
         wifiLock.setReferenceCounted(false);
 
         Hub hub = Hub.get();
-        hub.setAskBeforeShowing(Config.ask(this));
+        hub.setAskBeforeShowing(Config.ask(this), Config.askAlways(this));
         Config.applyLimits(this);
         audio = new AudioPlayer();
         hub.setAudioSink(audio);
         hub.addListener(this);
 
         receiverName = Config.name(this);
+        // A name Stream Port stored with dots before they were mapped: the box name (Chromecast) may still have them.
+        // Not a box name the owner set in Android settings with no stored name: that one stays as it is.
+        if (Config.hasStoredName(this) && Config.cleanName(BoxName.get(this)).equals(receiverName)) {
+            BoxName.set(this, receiverName);
+        }
         server = new RtspServer(Config.name(this), Config.deviceId(this));
         try {
             port = server.start();
@@ -113,15 +165,23 @@ public final class StreamService extends Service implements Hub.Listener, AdminS
         } catch (IOException e) {
             Log.e(TAG, "share page did not start", e);
         }
-        // A new address (joining Wi-Fi after boot, a new DHCP lease) needs a certificate that names it.
+        // A new address (joining Wi-Fi after boot, a new DHCP lease) needs a certificate that names it, and new
+        // mDNS records on it.
         android.net.ConnectivityManager cm = getSystemService(android.net.ConnectivityManager.class);
         networkCallback = new android.net.ConnectivityManager.NetworkCallback() {
             @Override
             public void onLinkPropertiesChanged(android.net.Network network, android.net.LinkProperties lp) {
                 com.nailem.streamport.webrtc.ShareServer s = shareServer;
                 if (s != null) new Thread(s::onAddressesChanged, "share-readdress").start();
+                if (advertiser != null) advertiser.onNetworkChanged();
                 // The idle screen shows the address too.
                 new android.os.Handler(getMainLooper()).post(StreamService.this::sendIdleScreen);
+            }
+
+            @Override
+            public void onLost(android.net.Network network) {
+                // Back on the same address (Wi-Fi dropped, same DHCP lease) still gets a fresh responder.
+                if (advertiser != null) advertiser.onNetworkLost();
             }
         };
         cm.registerDefaultNetworkCallback(networkCallback);
@@ -188,11 +248,23 @@ public final class StreamService extends Service implements Hub.Listener, AdminS
         if (s != null) s.startCapture(resultCode, data);
     }
 
+    /**
+     * The old encoder is still being let go of (a box may have just one H.264 encoder), and whether to start again
+     * once it has. Main thread.
+     */
+    private boolean rebroadcastStopping, restartWanted;
+
     /** Starts sending, with the idle screen until someone shares. Idempotent. Main thread. */
     private void startRebroadcast() {
+        if (rebroadcastStopping) {
+            restartWanted = true;
+            return;
+        }
         if (rebroadcaster != null) return;
         com.nailem.streamport.rebroadcast.Rebroadcaster r = new com.nailem.streamport.rebroadcast.Rebroadcaster(
-                () -> new android.os.Handler(getMainLooper()).post(this::stopRebroadcast),
+                which -> new android.os.Handler(getMainLooper()).post(() -> {
+                    if (rebroadcaster == which) stopRebroadcast(); // not a replacement started since
+                }),
                 Config.rebroadcastHeight(this), Config.rebroadcastFps(this));
         try {
             r.start();
@@ -242,13 +314,28 @@ public final class StreamService extends Service implements Hub.Listener, AdminS
         startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK);
     }
 
+    /** Stops sending. Main thread. */
     private void stopRebroadcast() {
         Hub.get().setEncoding(false);
         if (rebroadcaster == null) return;
         com.nailem.streamport.rebroadcast.Rebroadcaster r = rebroadcaster;
         rebroadcaster = null;
         capturing = false;
-        new Thread(r::stop, "rebroadcast-stop").start();
+        rebroadcastStopping = true;
+        new Thread(() -> {
+            try {
+                r.stop();
+            } catch (RuntimeException e) {
+                Log.w(TAG, "rebroadcast stop failed: " + e);
+            } finally {
+                new android.os.Handler(getMainLooper()).post(() -> {
+                    rebroadcastStopping = false;
+                    boolean again = restartWanted;
+                    restartWanted = false;
+                    if (again && running == this && Config.rebroadcast(this)) startRebroadcast();
+                });
+            }
+        }, "rebroadcast-stop").start();
         startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK);
         Hub.get().refresh();
     }
@@ -346,14 +433,7 @@ public final class StreamService extends Service implements Hub.Listener, AdminS
         }
         String clean = Config.name(this);
         BoxName.set(this, clean);
-        // New mDNS records under the new name; senders already mirroring stay connected.
-        new android.os.Handler(getMainLooper()).post(() -> {
-            server.setName(clean);
-            receiverName = clean;
-            advertiser.stop();
-            advertiser.start(server, port);
-            sendIdleScreen();
-        });
+        new android.os.Handler(getMainLooper()).post(() -> applyName(clean));
         Log.i(TAG, "renamed to " + clean);
         return null;
     }
@@ -406,8 +486,13 @@ public final class StreamService extends Service implements Hub.Listener, AdminS
     }
 
     @Override
-    public void showPin(String pin, long ttlMs, String requester) {
+    public String showPin(String pin, long ttlMs, String requester) {
+        if (!android.provider.Settings.canDrawOverlays(this)) {
+            return "the TV can't show the PIN: Stream Port may not draw over other apps. Allow it once over adb: "
+                    + "adb shell appops set " + getPackageName() + " SYSTEM_ALERT_WINDOW allow";
+        }
         pinOverlay.show(pin, ttlMs, requester);
+        return null;
     }
 
     @Override
