@@ -37,6 +37,12 @@ android {
         }
     }
 
+    // Unit tests touch Hub (a Handler) and Config (SharedPreferences through a stand-in): Android stubs do nothing
+    // there instead of throwing.
+    testOptions {
+        unitTests.returnDefaultValues = true
+    }
+
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17

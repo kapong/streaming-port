@@ -55,6 +55,15 @@ final class Config {
     }
 
     /**
+     * ask=always: ask before every share and remember nothing, so a sender approved a minute ago is asked again
+     * (a reconnect while its share is still on the TV is not a new share; see {@code Hub.add}). Stored as its own
+     * boolean beside "ask", which installs before it already hold as a boolean.
+     */
+    static boolean askAlways(Context c) {
+        return ask(c) && prefs(c).getBoolean("ask_always", false);
+    }
+
+    /**
      * Rebroadcast defaults: light enough next to four 720p screens (measured 2026-10-27: CPU 78% at 12 fps, 79% at
      * 15). It is for presentations, so 12 fps is plenty (anything over 10 is fine).
      */
@@ -128,9 +137,12 @@ final class Config {
                 }
                 e.putString("name", n);
                 break;
-            case "ask":
-                e.putBoolean("ask", Boolean.parseBoolean(value));
+            case "ask": {
+                boolean always = value.trim().equalsIgnoreCase("always");
+                e.putBoolean("ask", always || Boolean.parseBoolean(value));
+                e.putBoolean("ask_always", always);
                 break;
+            }
             case "rebroadcast":
                 e.putBoolean("rebroadcast", Boolean.parseBoolean(value));
                 break;

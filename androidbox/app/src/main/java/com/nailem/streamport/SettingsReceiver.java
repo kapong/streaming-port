@@ -7,7 +7,8 @@ import android.util.Log;
 
 /**
  * {@code adb shell am broadcast -n com.nailem.streamport/.SettingsReceiver -a com.nailem.streamport.SET
- * --es key name --es value "Meeting Room"}. Keys: {@code name}, {@code ask} (true/false), {@code max_res} (720p, 1080p, 1440p, 4k),
+ * --es key name --es value "Meeting Room"}. Keys: {@code name}, {@code ask} (true/false, or always: every
+ * share waits for OK and no approval is remembered), {@code max_res} (720p, 1080p, 1440p, 4k),
  * {@code max_streams} (1 to 8), {@code rebroadcast} (true/false),
  * {@code rebroadcast_res} (720p, 1080p), {@code rebroadcast_fps} (5 to 30). The manifest guards it with
  * DUMP, which only the shell and the system hold. A running receiver applies the change in place (senders stay

@@ -166,9 +166,12 @@ Installing restarts the receiver and cuts anyone mirroring, so check first:
 ```bash
 adb shell am broadcast -n com.nailem.streamport/.SettingsReceiver -a com.nailem.streamport.SET --es key name --es value "Meeting Room"
 adb shell am broadcast -n com.nailem.streamport/.SettingsReceiver -a com.nailem.streamport.SET --es key ask --es value true
+adb shell am broadcast -n com.nailem.streamport/.SettingsReceiver -a com.nailem.streamport.SET --es key ask --es value always
 ```
 
-Keys: `name` (what senders see), `ask` (`true` holds each new sender behind an "OK allow / BACK refuse" card),
+Keys: `name` (what senders see), `ask` (`true` holds each new sender behind an "OK allow / BACK refuse" card
+and remembers the approval until the receiver restarts; `always` holds every share and remembers nothing, so
+the same sender is asked again next time; an AirPlay reconnect while its approved screen is still up isn't asked),
 `max_res` (`1080p`, `1440p`, `4k`), `max_streams` (1 to 8), `rebroadcast` (`true`/`false`), `rebroadcast_res`
 (`720p`, `1080p`), `rebroadcast_fps` (5 to 30). A running receiver applies a change in place, as the admin
 page does, and senders already mirroring stay connected. If the receiver isn't running and Android won't start it

@@ -85,7 +85,7 @@ public final class StreamService extends Service implements Hub.Listener, AdminS
             Log.w(TAG, "settings not reloaded: the receiver did not start");
             return;
         }
-        Hub.get().setAskBeforeShowing(Config.ask(this));
+        Hub.get().setAskBeforeShowing(Config.ask(this), Config.askAlways(this));
         Config.applyLimits(this);
         String name = Config.name(this);
         if (!name.equals(server.name())) applyName(name);
@@ -130,7 +130,7 @@ public final class StreamService extends Service implements Hub.Listener, AdminS
         wifiLock.setReferenceCounted(false);
 
         Hub hub = Hub.get();
-        hub.setAskBeforeShowing(Config.ask(this));
+        hub.setAskBeforeShowing(Config.ask(this), Config.askAlways(this));
         Config.applyLimits(this);
         audio = new AudioPlayer();
         hub.setAudioSink(audio);
