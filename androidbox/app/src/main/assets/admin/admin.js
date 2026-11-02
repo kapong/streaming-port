@@ -17,6 +17,12 @@ function fillStreamOptions(selected) {
 }
 let timer = null;
 
+const ASK_HINTS = {
+  off: 'Anyone on the Wi-Fi shows on the TV at once.',
+  once: 'A new sender waits until someone presses OK on the TV remote; approval lasts until the app restarts.',
+  always: 'Every new connection waits for OK on the TV remote, even a sender reconnecting mid-share.',
+};
+
 async function api(path, body) {
   const res = await fetch('/api/' + path, {
     method: body === undefined ? 'GET' : 'POST',
@@ -70,6 +76,10 @@ function render(s) {
       : !s.rebroadcast.live ? 'On: starting.'
       : s.rebroadcast.mirroring ? '\u25CF Live now: sending the TV.'
       : '\u25CF Live now: sending the welcome screen until someone shares.';
+  }
+  if (s.ask) {
+    if (document.activeElement !== $('ask')) $('ask').value = s.ask;
+    $('ask-hint').textContent = ASK_HINTS[s.ask] || '';
   }
   for (const b of document.querySelectorAll('.seg button')) b.classList.toggle('on', b.dataset.mode === s.layout);
   $('layout-hint').textContent = {
@@ -205,6 +215,16 @@ $('rb-on').onchange = () => {
   act(() => api('rebroadcast', { enabled: on }), () => on
     ? 'Rebroadcast on: the welcome screen now, the TV whenever someone shares. Watch in VLC at ' + $('rb-url').textContent + '.'
     : 'Rebroadcast off.');
+};
+
+$('ask').onchange = () => {
+  const mode = $('ask').value;
+  act(() => api('ask', { mode }), () => ({
+    off: 'Ask before showing is off: new senders show at once.',
+    once: 'Saved: each new sender waits for OK on the TV remote once.',
+    always: 'Saved: every new connection waits for OK on the TV remote.',
+  }[mode] + ' Screens already showing stay.'));
+  $('ask').blur();
 };
 
 $('open-miracast').onclick = () => {

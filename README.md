@@ -20,7 +20,7 @@
 | ![The TV's welcome screen with the AirPlay steps, a QR code for browsers and the addresses](docs/welcome.png) | ![Grid layout: four equal cells](docs/grid.png) |
 | **Welcome screen.** How to share from an iPhone, iPad or Mac (AirPlay) or any browser, with this box's own name and address. | **Grid layout.** OK on the remote cycles Dynamic (top), Grid and Focus. |
 | ![Focus layout: only the primary screen](docs/focus.png) | <img src="docs/share-page.png" alt="The share page on a phone" width="32%"> <img src="docs/admin-page.png" alt="The admin page" width="64%"> |
-| **Focus layout.** Only the primary screen; Left and Right switch between senders. | **Share page** (left) for browsers: screen or camera. **Admin page** (right): name, layout, limits, kick. |
+| **Focus layout.** Only the primary screen; Left and Right switch between senders. | **Share page** (left) for browsers: screen or camera. **Admin page** (right): name, layout, ask before showing, limits, kick. |
 
 The screens shown are made-up examples sent with `androidbox/tools/test_sender.py --image`.
 

@@ -7,6 +7,7 @@ STATE = {
     "name": "Meeting Room", "boxName": "Meeting Room", "canRenameBox": True, "miracast": True, "layout": "dynamic",
     "primary": 1, "max": 4, "maxStreams": 4, "maxStreamsLimit": 8, "resolution": "720p",
     "maxStreamsFor": {"720p": 8, "1080p": 4, "1440p": 2, "4k": 1},
+    "ask": "off",
     "rebroadcast": {"enabled": True, "live": True, "mirroring": True, "url": "udp://@239.255.42.42:5004"},
     "senders": [
         {"id": 1, "kind": "AirPlay", "name": "Weekly meeting", "model": "Mac14,2", "address": "192.168.1.31",

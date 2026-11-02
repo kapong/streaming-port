@@ -86,6 +86,9 @@ public final class AdminServer {
         /** Rebroadcast to the LAN while someone shares (applies at once). */
         void setRebroadcast(boolean on);
 
+        /** Ask before showing a new sender (applies at once); {@code setting} is Config's: false, true or always. */
+        void setAsk(String setting);
+
         /** Disconnects AirPlay and opens the Miracast receiver; returns an error message or null. */
         String openMiracast();
 
@@ -401,6 +404,16 @@ public final class AdminServer {
                     admin.setRebroadcast(body.getBoolean("enabled"));
                     json(out, 200, admin.state(), null);
                     return;
+                case "POST /api/ask": {
+                    String setting = askSetting(body.getString("mode"));
+                    if (setting == null) {
+                        json(out, 400, error("mode: off, once or always"), null);
+                        return;
+                    }
+                    admin.setAsk(setting);
+                    json(out, 200, admin.state(), null);
+                    return;
+                }
                 case "POST /api/miracast": {
                     String err = admin.openMiracast();
                     json(out, err == null ? 200 : 400, err == null ? admin.state() : error(err), null);
@@ -423,6 +436,17 @@ public final class AdminServer {
             }
         } catch (JSONException e) {
             json(out, 400, error("bad request"), null);
+        }
+    }
+
+    /** The page's ask modes (off, once, always) as Config's ask values; null for anything else. */
+    static String askSetting(String mode) {
+        if (mode == null) return null;
+        switch (mode) {
+            case "off": return "false";
+            case "once": return "true";
+            case "always": return "always";
+            default: return null;
         }
     }
 

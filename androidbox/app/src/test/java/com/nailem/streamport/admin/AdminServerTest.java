@@ -35,4 +35,16 @@ public class AdminServerTest {
         for (int i = 0; i < 400; i++) deep.append('[');
         org.junit.Assert.assertEquals(400, AdminServer.nesting(deep.toString().getBytes()));
     }
+
+    /** POST /api/ask: the page's three modes map onto Config's ask values; anything else is a 400. */
+    @Test
+    public void askModesMapToConfigValues() {
+        org.junit.Assert.assertEquals("false", AdminServer.askSetting("off"));
+        org.junit.Assert.assertEquals("true", AdminServer.askSetting("once"));
+        org.junit.Assert.assertEquals("always", AdminServer.askSetting("always"));
+        org.junit.Assert.assertNull(AdminServer.askSetting("true"));
+        org.junit.Assert.assertNull(AdminServer.askSetting("ALWAYS"));
+        org.junit.Assert.assertNull(AdminServer.askSetting(""));
+        org.junit.Assert.assertNull(AdminServer.askSetting(null));
+    }
 }
