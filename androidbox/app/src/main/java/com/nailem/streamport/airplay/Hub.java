@@ -64,11 +64,26 @@ public final class Hub {
     private Hub() {
     }
 
-    /** always (ask=always, only with ask): every share waits for OK, and senders approved so far are forgotten. */
-    public synchronized void setAskBeforeShowing(boolean ask, boolean always) {
-        askBeforeShowing = ask;
-        askEveryShare = ask && always;
-        if (askEveryShare) approved.clear();
+    /**
+     * always (ask=always, only with ask): every share waits for OK, and senders approved so far are forgotten.
+     * Turning ask off lets in the screens still waiting (without remembering them as approved).
+     */
+    public void setAskBeforeShowing(boolean ask, boolean always) {
+        boolean letIn = false;
+        synchronized (this) {
+            askBeforeShowing = ask;
+            askEveryShare = ask && always;
+            if (askEveryShare) approved.clear();
+            if (!ask) {
+                for (Screen s : screens) {
+                    if (s.state() == Screen.State.PENDING && !s.isClosed()) {
+                        s.setState(Screen.State.ALLOWED);
+                        letIn = true;
+                    }
+                }
+            }
+        }
+        if (letIn) notifyChanged();
     }
 
     public void setAudioSink(Session.AudioSink sink) {

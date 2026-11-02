@@ -137,7 +137,8 @@ goes back to Home after 10 minutes with nobody sharing.
 
 `http://BOX_IP:8089` from any browser on the LAN (the TV's idle screen shows the address). Press "Show PIN on
 TV", type the 6-digit code from the TV, and the browser stays logged in for 30 days. From there: rename the
-receiver, switch layout, pick the primary screen, set the max resolution and max screens, see each sender's
+receiver, switch layout, pick the primary screen, choose whether new senders need OK on the remote (Ask before
+showing: off, once per sender, every time), set the max resolution and max screens, see each sender's
 address, resolution and network quality (Mb/s, fps, jitter), kick a sender, and switch the TV to Miracast. Every
 save shows what changed and when it applies. Details in `SECURITY.md`. To work on the page without a TV,
 `python3 -I androidbox/mock/admin_server.py` serves it at `http://127.0.0.1:8768` with four made-up senders.
@@ -161,7 +162,7 @@ adb shell am start -n com.nailem.streamport/.StreamActivity              # first
 Installing restarts the receiver and cuts anyone mirroring, so check first:
 `adb shell dumpsys window | grep mCurrentFocus` should not show `streamport`.
 
-## Settings (adb only)
+## Settings (adb)
 
 ```bash
 adb shell am broadcast -n com.nailem.streamport/.SettingsReceiver -a com.nailem.streamport.SET --es key name --es value "Meeting Room"
@@ -173,8 +174,10 @@ Keys: `name` (what senders see), `ask` (`true` holds each new sender behind an "
 and remembers the approval until the receiver restarts; `always` holds every share and remembers nothing, so
 the same sender is asked again next time, even when it reconnects mid-share),
 `max_res` (`1080p`, `1440p`, `4k`), `max_streams` (1 to 8), `rebroadcast` (`true`/`false`), `rebroadcast_res`
-(`720p`, `1080p`), `rebroadcast_fps` (5 to 30). A running receiver applies a change in place, as the admin
-page does, and senders already mirroring stay connected. If the receiver isn't running and Android won't start it
+(`720p`, `1080p`), `rebroadcast_fps` (5 to 30). `name`, `ask`, `max_res`, `max_streams` and `rebroadcast` can
+also be changed on the admin page (for `ask`, "Ask before showing": Off = `false`, Ask once per sender = `true`,
+Ask every time = `always`). A running receiver applies a change in place, as the admin page does, and senders
+already mirroring stay connected (turning `ask` off also lets in any sender still waiting for OK). If the receiver isn't running and Android won't start it
 from the background, the reply is `ok <key> (stored; applies when the receiver next starts)`.
 
 ## Testing without an iPhone or a laptop

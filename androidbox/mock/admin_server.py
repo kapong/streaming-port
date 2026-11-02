@@ -7,6 +7,7 @@ STATE = {
     "name": "Meeting Room", "boxName": "Meeting Room", "canRenameBox": True, "miracast": True, "layout": "dynamic",
     "primary": 1, "max": 4, "maxStreams": 4, "maxStreamsLimit": 8, "resolution": "720p",
     "maxStreamsFor": {"720p": 8, "1080p": 4, "1440p": 2, "4k": 1},
+    "ask": "off",
     "rebroadcast": {"enabled": True, "live": True, "mirroring": True, "url": "udp://@239.255.42.42:5004"},
     "senders": [
         {"id": 1, "kind": "AirPlay", "name": "Weekly meeting", "model": "Mac14,2", "address": "192.168.1.31",
@@ -39,8 +40,13 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         super().do_GET()
 
     def do_POST(self):
-        self.rfile.read(int(self.headers.get("Content-Length") or 0))
-        self.answer({})     # every change "works" and nothing changes
+        try:
+            body = json.loads(self.rfile.read(int(self.headers.get("Content-Length") or 0)) or b"{}")
+        except ValueError:
+            body = {}
+        if self.path == "/api/ask" and body.get("mode") in ("off", "once", "always"):
+            STATE["ask"] = body["mode"]
+        self.answer(STATE)  # every change "works"; only ask is kept
 
 
 http.server.ThreadingHTTPServer(("127.0.0.1", 8768), Handler).serve_forever()

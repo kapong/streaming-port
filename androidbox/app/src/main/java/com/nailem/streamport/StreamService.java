@@ -390,6 +390,7 @@ public final class StreamService extends Service implements Hub.Listener, AdminS
         rb.put("mirroring", mirroring());
         rb.put("url", com.nailem.streamport.rebroadcast.Rebroadcaster.URL);
         o.put("rebroadcast", rb);
+        o.put("ask", Config.askAlways(this) ? "always" : Config.ask(this) ? "once" : "off");
         JSONArray list = new JSONArray();
         for (Screen s : hub.screens()) {
             NetStats.Snapshot st = s.stats();
@@ -474,6 +475,15 @@ public final class StreamService extends Service implements Hub.Listener, AdminS
             else stopRebroadcast();
             Hub.get().refresh();
         });
+    }
+
+    @Override
+    public void setAsk(String setting) {
+        Config.set(this, "ask", setting);
+        // As reload() does: senders already showing stay; Off also lets in the senders still waiting (Hub tells
+        // its listeners when it does); otherwise the new mode applies to whoever connects next.
+        new android.os.Handler(getMainLooper()).post(() ->
+                Hub.get().setAskBeforeShowing(Config.ask(this), Config.askAlways(this)));
     }
 
     @Override
