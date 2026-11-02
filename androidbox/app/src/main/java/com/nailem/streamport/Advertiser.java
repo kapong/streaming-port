@@ -32,7 +32,7 @@ final class Advertiser {
 
     private final Context context;
     private final WifiManager.MulticastLock multicastLock;
-    /** One thread, in order: JmDNS blocks while it probes and while it says goodbye. Idles out when unused. */
+    /** One thread, in order: closing JmDNS blocks (goodbyes, up to ~5 s a service plus 5 s). Idles out when unused. */
     private final ThreadPoolExecutor worker =
             new ThreadPoolExecutor(1, 1, 30, TimeUnit.SECONDS, new LinkedBlockingQueue<>());
 
@@ -68,6 +68,15 @@ final class Advertiser {
             Log.i(TAG, "mDNS: address " + (was.isEmpty() ? "none" : was) + " -> " + (now.isEmpty() ? "none" : now));
             close();
             open();
+        });
+    }
+
+    /** The default network went away: drops JmDNS, so the next address (even the same one) gets a fresh one. */
+    void onNetworkLost() {
+        worker.execute(() -> {
+            if (server == null || jmdns == null) return;
+            Log.i(TAG, "mDNS: network lost");
+            close();
         });
     }
 
@@ -119,14 +128,15 @@ final class Advertiser {
         raop.put("vs", RtspServer.SOURCE_VERSION);
 
         // A host name of its own (StreamPort-<device id>.local), so it never contends with Android's.
-        String host = "StreamPort-" + server.deviceId().replace(":", "");
+        String id = server.deviceId().replace(":", "");
+        String host = "StreamPort-" + id;
         multicastLock.acquire();
         try {
             jmdns = JmDNS.create(InetAddress.getByName(ip), host); // a literal: no DNS lookup
             address = ip;
             register(ServiceInfo.create("_airplay._tcp.local.", server.name(), port, 0, 0, airplay));
             register(ServiceInfo.create("_raop._tcp.local.",
-                    server.deviceId().replace(":", "") + "@" + server.name(), port, 0, 0, raop));
+                    id + "@" + server.name(), port, 0, 0, raop));
         } catch (IOException | RuntimeException e) {
             Log.e(TAG, "mDNS: could not advertise on " + ip + ": " + e);
             close();
@@ -134,8 +144,8 @@ final class Advertiser {
     }
 
     private void register(ServiceInfo info) throws IOException {
+        // Returns once probing has started; a rename after a conflict on the wire ("Name (2)") comes later, unlogged.
         jmdns.registerService(info);
-        // JmDNS renames on a conflict with another device ("Name (2)"); log what it settled on.
         Log.i(TAG, "mDNS: " + info.getName() + " " + info.getType() + " on " + address + " (" + jmdns.getHostName() + ")");
     }
 

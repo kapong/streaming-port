@@ -30,7 +30,10 @@ final class Config {
      */
     static String name(Context c) {
         String n = prefs(c).getString("name", null);
-        if (n != null) return n;
+        if (n != null) {
+            n = cleanName(n); // again: a name stored before dots were mapped
+            if (fits(n)) return n;
+        }
         for (String d : new String[] {BoxName.get(c), android.os.Build.MODEL}) {
             d = cleanName(d == null ? "" : d);
             if (fits(d)) return d;
@@ -172,15 +175,18 @@ final class Config {
 
     /**
      * A name fit for an mDNS service: printable characters only (no control or invisible formatting characters,
-     * which could spoof another receiver in a sender's list), trimmed.
+     * which could spoof another receiver in a sender's list), trimmed. Dots become spaces and leading underscores
+     * go: JmDNS puts the name on the wire unescaped, so "Room 3.2" would split into labels, and it drops a
+     * leading "_".
      */
     static String cleanName(String value) {
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < value.length(); i++) {
             char c = value.charAt(i);
-            if (!Character.isISOControl(c) && Character.getType(c) != Character.FORMAT) sb.append(c);
+            if (c == '.') sb.append(' ');
+            else if (!Character.isISOControl(c) && Character.getType(c) != Character.FORMAT) sb.append(c);
         }
-        return sb.toString().trim();
+        return sb.toString().replaceAll(" {2,}", " ").replaceFirst("^[_ ]+", "").trim();
     }
 
     /**

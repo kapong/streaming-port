@@ -180,7 +180,7 @@ function toast(text, isError) {
 $('ask-pin').onclick = async () => {
   try {
     const r = await api('pin', {});
-    // overlay:false: the TV couldn't show it (no permission to draw over other apps); the error says how to fix it.
+    // e.g. the TV couldn't show it (no permission to draw over other apps); the error says how to fix it.
     if (r.error) { say($('login-msg'), r.error, true); return; }
     say($('login-msg'), 'Look at the TV. The PIN is valid for ' + r.expiresIn + ' s.');
     $('pin').focus();

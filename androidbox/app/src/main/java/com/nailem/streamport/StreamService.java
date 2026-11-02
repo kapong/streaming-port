@@ -62,42 +62,41 @@ public final class StreamService extends Service implements Hub.Listener, AdminS
      * Applies settings just written to {@link Config}. While the service runs, in place: stopping it would drop the
      * app's foreground-service standing, and from a broadcast receiver Android 12+ then refuses to start it again
      * (ForegroundServiceStartNotAllowedException). Otherwise starts it; if Android refuses that from the background,
-     * the settings apply at its next start. Main thread.
+     * the settings apply at its next start and this returns false. Main thread.
      */
-    static void restart(Context c) {
+    static boolean restart(Context c) {
         StreamService s = running;
         if (s != null) {
             s.reload();
-            return;
+            return true;
         }
         try {
             start(c);
-        } catch (IllegalStateException e) {
-            if (android.os.Build.VERSION.SDK_INT >= 31
-                    && e instanceof android.app.ForegroundServiceStartNotAllowedException) {
-                Log.w(TAG, "receiver not started from the background; the settings apply at its next start: " + e);
-            } else {
-                throw e;
-            }
+            return true;
+        } catch (IllegalStateException e) { // ForegroundServiceStartNotAllowedException
+            Log.w(TAG, "receiver not started from the background; the settings apply at its next start: " + e);
+            return false;
         }
     }
 
     /** Re-reads {@link Config} and changes only what differs; senders already mirroring stay connected. Main thread. */
     private void reload() {
-        if (advertiser == null) return; // the receiver did not start and is stopping; the next start reads Config
+        if (advertiser == null) { // the receiver did not start and is stopping; the next start reads Config
+            Log.w(TAG, "settings not reloaded: the receiver did not start");
+            return;
+        }
         Hub.get().setAskBeforeShowing(Config.ask(this));
         Config.applyLimits(this);
         String name = Config.name(this);
         if (!name.equals(server.name())) applyName(name);
-        if (!Config.rebroadcast(this)) {
-            stopRebroadcast();
-        } else if (rebroadcaster != null && (rebroadcaster.height() != Config.rebroadcastHeight(this)
-                || rebroadcaster.fps() != Config.rebroadcastFps(this))) {
-            stopRebroadcast();
-            startRebroadcast();
-        } else {
-            startRebroadcast();
-        }
+        boolean on = Config.rebroadcast(this);
+        boolean changed = rebroadcaster != null && (rebroadcaster.height() != Config.rebroadcastHeight(this)
+                || rebroadcaster.fps() != Config.rebroadcastFps(this));
+        // A box may have one H.264 encoder: a new size or rate starts once the old encoder has let go of it.
+        if (rebroadcaster != null && (!on || changed)) stopRebroadcast(changed ? () -> {
+            if (running == this && Config.rebroadcast(this)) startRebroadcast();
+        } : null);
+        if (on && !changed) startRebroadcast();
         sendIdleScreen();
         Hub.get().refresh();
         Log.i(TAG, "settings reloaded");
@@ -105,10 +104,10 @@ public final class StreamService extends Service implements Hub.Listener, AdminS
 
     /** New mDNS records (and notification) under the new name; senders already mirroring stay connected. Main thread. */
     private void applyName(String name) {
+        if (running != this) return; // posted from the admin page after the service went away
         server.setName(name);
         receiverName = name;
-        advertiser.stop();
-        advertiser.start(server, port);
+        advertiser.start(server, port); // closes the old records first
         notification = Notification.Builder.recoverBuilder(this, notification).setContentTitle(name).build();
         getSystemService(NotificationManager.class).notify(1, notification);
         sendIdleScreen();
@@ -175,6 +174,12 @@ public final class StreamService extends Service implements Hub.Listener, AdminS
                 if (advertiser != null) advertiser.onNetworkChanged();
                 // The idle screen shows the address too.
                 new android.os.Handler(getMainLooper()).post(StreamService.this::sendIdleScreen);
+            }
+
+            @Override
+            public void onLost(android.net.Network network) {
+                // Back on the same address (Wi-Fi dropped, same DHCP lease) still gets a fresh responder.
+                if (advertiser != null) advertiser.onNetworkLost();
             }
         };
         cm.registerDefaultNetworkCallback(networkCallback);
@@ -296,12 +301,20 @@ public final class StreamService extends Service implements Hub.Listener, AdminS
     }
 
     private void stopRebroadcast() {
+        stopRebroadcast(null);
+    }
+
+    /** Stops sending; {@code then}, if any, runs on the main thread once the encoder is released. Main thread. */
+    private void stopRebroadcast(Runnable then) {
         Hub.get().setEncoding(false);
         if (rebroadcaster == null) return;
         com.nailem.streamport.rebroadcast.Rebroadcaster r = rebroadcaster;
         rebroadcaster = null;
         capturing = false;
-        new Thread(r::stop, "rebroadcast-stop").start();
+        new Thread(() -> {
+            r.stop();
+            if (then != null) new android.os.Handler(getMainLooper()).post(then);
+        }, "rebroadcast-stop").start();
         startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK);
         Hub.get().refresh();
     }

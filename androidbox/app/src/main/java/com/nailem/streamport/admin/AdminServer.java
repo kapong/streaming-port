@@ -472,7 +472,6 @@ public final class AdminServer {
             if (error != null) {
                 // Nothing is on the TV, so no PIN is live and no wait is due: asking again once it's fixed works.
                 Log.w(TAG, "admin: PIN not shown for " + from.getHostAddress() + ": " + error);
-                o.put("overlay", false);
                 o.put("error", error);
                 return o;
             }

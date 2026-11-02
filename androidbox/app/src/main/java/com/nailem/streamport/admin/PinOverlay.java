@@ -7,7 +7,6 @@ import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Handler;
 import android.os.Looper;
-import android.provider.Settings;
 import android.util.Log;
 import android.util.TypedValue;
 import android.view.Gravity;
@@ -36,11 +35,6 @@ public final class PinOverlay {
     public void show(String pin, long ttlMs, String requester) {
         main.post(() -> {
             hideNow();
-            if (!Settings.canDrawOverlays(context)) {
-                Log.w("StreamPort", "admin PIN: no overlay permission (adb shell appops set "
-                        + context.getPackageName() + " SYSTEM_ALERT_WINDOW allow)");
-                return;
-            }
             LinearLayout box = new LinearLayout(context);
             box.setOrientation(LinearLayout.VERTICAL);
             int p = dp(20);
