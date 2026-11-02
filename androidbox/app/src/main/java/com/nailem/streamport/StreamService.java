@@ -58,9 +58,60 @@ public final class StreamService extends Service implements Hub.Listener, AdminS
         c.startForegroundService(new Intent(c, StreamService.class));
     }
 
+    /**
+     * Applies settings just written to {@link Config}. While the service runs, in place: stopping it would drop the
+     * app's foreground-service standing, and from a broadcast receiver Android 12+ then refuses to start it again
+     * (ForegroundServiceStartNotAllowedException). Otherwise starts it; if Android refuses that from the background,
+     * the settings apply at its next start. Main thread.
+     */
     static void restart(Context c) {
-        c.stopService(new Intent(c, StreamService.class));
-        start(c);
+        StreamService s = running;
+        if (s != null) {
+            s.reload();
+            return;
+        }
+        try {
+            start(c);
+        } catch (IllegalStateException e) {
+            if (android.os.Build.VERSION.SDK_INT >= 31
+                    && e instanceof android.app.ForegroundServiceStartNotAllowedException) {
+                Log.w(TAG, "receiver not started from the background; the settings apply at its next start: " + e);
+            } else {
+                throw e;
+            }
+        }
+    }
+
+    /** Re-reads {@link Config} and changes only what differs; senders already mirroring stay connected. Main thread. */
+    private void reload() {
+        if (advertiser == null) return; // the receiver did not start and is stopping; the next start reads Config
+        Hub.get().setAskBeforeShowing(Config.ask(this));
+        Config.applyLimits(this);
+        String name = Config.name(this);
+        if (!name.equals(server.name())) applyName(name);
+        if (!Config.rebroadcast(this)) {
+            stopRebroadcast();
+        } else if (rebroadcaster != null && (rebroadcaster.height() != Config.rebroadcastHeight(this)
+                || rebroadcaster.fps() != Config.rebroadcastFps(this))) {
+            stopRebroadcast();
+            startRebroadcast();
+        } else {
+            startRebroadcast();
+        }
+        sendIdleScreen();
+        Hub.get().refresh();
+        Log.i(TAG, "settings reloaded");
+    }
+
+    /** New mDNS records (and notification) under the new name; senders already mirroring stay connected. Main thread. */
+    private void applyName(String name) {
+        server.setName(name);
+        receiverName = name;
+        advertiser.stop();
+        advertiser.start(server, port);
+        notification = Notification.Builder.recoverBuilder(this, notification).setContentTitle(name).build();
+        getSystemService(NotificationManager.class).notify(1, notification);
+        sendIdleScreen();
     }
 
     @Override
@@ -348,14 +399,7 @@ public final class StreamService extends Service implements Hub.Listener, AdminS
         }
         String clean = Config.name(this);
         BoxName.set(this, clean);
-        // New mDNS records under the new name; senders already mirroring stay connected.
-        new android.os.Handler(getMainLooper()).post(() -> {
-            server.setName(clean);
-            receiverName = clean;
-            advertiser.stop();
-            advertiser.start(server, port);
-            sendIdleScreen();
-        });
+        new android.os.Handler(getMainLooper()).post(() -> applyName(clean));
         Log.i(TAG, "renamed to " + clean);
         return null;
     }

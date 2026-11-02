@@ -10,7 +10,9 @@ import android.util.Log;
  * --es key name --es value "Meeting Room"}. Keys: {@code name}, {@code ask} (true/false), {@code max_res} (720p, 1080p, 1440p, 4k),
  * {@code max_streams} (1 to 8), {@code rebroadcast} (true/false),
  * {@code rebroadcast_res} (720p, 1080p), {@code rebroadcast_fps} (5 to 30). The manifest guards it with
- * DUMP, which only the shell and the system hold. The receiver restarts to apply the change.
+ * DUMP, which only the shell and the system hold. A running receiver applies the change in place (senders stay
+ * connected); one that isn't running starts with it, or picks it up at its next start if Android won't let a
+ * background app start it now.
  */
 public final class SettingsReceiver extends BroadcastReceiver {
     @Override

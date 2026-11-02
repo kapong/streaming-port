@@ -138,6 +138,14 @@ public final class Rebroadcaster {
                 + (lan != null ? lan.getName() : "default route"));
     }
 
+    public int height() {
+        return height;
+    }
+
+    public int fps() {
+        return fps;
+    }
+
     public boolean isRunning() {
         return running;
     }
