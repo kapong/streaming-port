@@ -62,7 +62,7 @@ async function refresh() {
   } catch (e) { /* login screen already shown on 401 */ }
 }
 
-/** force: also reset the control being used (after a failed save); a typed name is kept to retry. */
+/** force: also reset the control being used (after a failed save). */
 function render(s, force) {
   state = s;
   if (document.activeElement !== $('name')) $('name').value = s.name;

@@ -40,7 +40,10 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         super().do_GET()
 
     def do_POST(self):
-        body = json.loads(self.rfile.read(int(self.headers.get("Content-Length") or 0)) or b"{}")
+        try:
+            body = json.loads(self.rfile.read(int(self.headers.get("Content-Length") or 0)) or b"{}")
+        except ValueError:
+            body = {}
         if self.path == "/api/ask" and body.get("mode") in ("off", "once", "always"):
             STATE["ask"] = body["mode"]
         self.answer(STATE)  # every change "works"; only ask is kept

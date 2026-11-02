@@ -480,11 +480,10 @@ public final class StreamService extends Service implements Hub.Listener, AdminS
     @Override
     public void setAsk(String setting) {
         Config.set(this, "ask", setting);
-        // As reload() does: senders already showing stay; the new mode applies to whoever connects next.
-        new android.os.Handler(getMainLooper()).post(() -> {
-            Hub.get().setAskBeforeShowing(Config.ask(this), Config.askAlways(this));
-            Hub.get().refresh();
-        });
+        // As reload() does: senders already showing stay; Off also lets in the senders still waiting (Hub tells
+        // its listeners when it does); otherwise the new mode applies to whoever connects next.
+        new android.os.Handler(getMainLooper()).post(() ->
+                Hub.get().setAskBeforeShowing(Config.ask(this), Config.askAlways(this)));
     }
 
     @Override
