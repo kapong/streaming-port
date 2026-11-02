@@ -10,6 +10,7 @@ StreamPort as a whole is distributed under GPL-3.0 (the repository's `LICENSE`).
 | [curve25519-java](https://github.com/signalapp/curve25519-java) `org.whispersystems:curve25519-java` 0.5.0 | Gradle dependency | GPL-3.0 |
 | WebRTC as built by Stream, `io.getstream:stream-webrtc-android` 1.3.9 (libwebrtc includes libyuv) | Gradle dependency | Apache-2.0 / BSD-3-Clause (WebRTC, libyuv) |
 | [ZXing](https://github.com/zxing/zxing) core 3.5.3 | Gradle dependency | Apache-2.0 |
+| [JmDNS](https://github.com/jmdns/jmdns) `org.jmdns:jmdns` 3.5.12, with its `org.slf4j:slf4j-api` 2.0.7 | Gradle dependency | Apache-2.0 (JmDNS), MIT (SLF4J) |
 | [Outfit](https://github.com/Outfitio/Outfit-Fonts) font | `app/src/main/assets/fonts/outfit.ttf`, `mock/` | SIL Open Font License 1.1 (`FONT-LICENSE-OFL.txt`) |
 
 AirPlay, iPhone, iPad and Mac are trademarks of Apple Inc.; this project is not affiliated with Apple.

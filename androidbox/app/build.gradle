@@ -53,5 +53,8 @@ dependencies {
     implementation 'io.getstream:stream-webrtc-android:1.3.9'
     // QR code with the share address on the TV's idle screen (Apache-2.0, pure Java; R8 keeps the encoder only).
     implementation 'com.google.zxing:core:3.5.3'
+    // mDNS responder for the AirPlay records (Apache-2.0, pure Java). Android 14's own responder won't announce
+    // _airplay._tcp under the box's name, which its TV remote service already holds (see Advertiser).
+    implementation 'org.jmdns:jmdns:3.5.12'
     testImplementation 'junit:junit:4.13.2'
 }

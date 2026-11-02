@@ -259,6 +259,6 @@ is 960x540 on the TV, so 720p senders lose nothing; 1080p only helps a single fu
 | `StreamActivity.java`, `TileView.java`, `TileLayout.java` | Screen, tiles, dynamic and grid layouts |
 | `VideoDecoder.java`, `AudioPlayer.java` | Hardware H.264 decode per tile; AAC-ELD audio for the focused tile |
 | `rebroadcast/Rebroadcaster.java`, `rebroadcast/TsMuxer.java` | LAN rebroadcast: mirror capture, libyuv, encoder, MPEG-TS over UDP multicast |
-| `StreamService.java`, `Advertiser.java` | Background service, mDNS (`_airplay._tcp`, `_raop._tcp`) via Android's NsdManager |
+| `StreamService.java`, `Advertiser.java` | Background service, mDNS (`_airplay._tcp`, `_raop._tcp`) via JmDNS on the active network's IPv4 address |
 
 Security review: see `SECURITY.md`.

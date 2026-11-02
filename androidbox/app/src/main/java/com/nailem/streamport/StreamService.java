@@ -113,13 +113,15 @@ public final class StreamService extends Service implements Hub.Listener, AdminS
         } catch (IOException e) {
             Log.e(TAG, "share page did not start", e);
         }
-        // A new address (joining Wi-Fi after boot, a new DHCP lease) needs a certificate that names it.
+        // A new address (joining Wi-Fi after boot, a new DHCP lease) needs a certificate that names it, and new
+        // mDNS records on it.
         android.net.ConnectivityManager cm = getSystemService(android.net.ConnectivityManager.class);
         networkCallback = new android.net.ConnectivityManager.NetworkCallback() {
             @Override
             public void onLinkPropertiesChanged(android.net.Network network, android.net.LinkProperties lp) {
                 com.nailem.streamport.webrtc.ShareServer s = shareServer;
                 if (s != null) new Thread(s::onAddressesChanged, "share-readdress").start();
+                if (advertiser != null) advertiser.onNetworkChanged();
                 // The idle screen shows the address too.
                 new android.os.Handler(getMainLooper()).post(StreamService.this::sendIdleScreen);
             }
@@ -406,8 +408,13 @@ public final class StreamService extends Service implements Hub.Listener, AdminS
     }
 
     @Override
-    public void showPin(String pin, long ttlMs, String requester) {
+    public String showPin(String pin, long ttlMs, String requester) {
+        if (!android.provider.Settings.canDrawOverlays(this)) {
+            return "the TV can't show the PIN: Stream Port may not draw over other apps. Allow it once over adb: "
+                    + "adb shell appops set " + getPackageName() + " SYSTEM_ALERT_WINDOW allow";
+        }
         pinOverlay.show(pin, ttlMs, requester);
+        return null;
     }
 
     @Override

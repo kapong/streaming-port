@@ -89,8 +89,11 @@ public final class AdminServer {
         /** Disconnects AirPlay and opens the Miracast receiver; returns an error message or null. */
         String openMiracast();
 
-        /** {@code requester}: the address that asked, shown so the person at the TV can judge. */
-        void showPin(String pin, long ttlMs, String requester);
+        /**
+         * {@code requester}: the address that asked, shown so the person at the TV can judge. Returns an error
+         * message when the TV can't show it, or null.
+         */
+        String showPin(String pin, long ttlMs, String requester);
 
         void hidePin();
     }
@@ -464,12 +467,20 @@ public final class AdminServer {
                 o.put("error", "wait " + (wait / 1000 + 1) + " s before asking for another PIN");
                 return o;
             }
+            String next = String.format(Locale.ROOT, "%06d", random.nextInt(1_000_000));
+            String error = admin.showPin(next, PIN_TTL_MS, from.getHostAddress());
+            if (error != null) {
+                // Nothing is on the TV, so no PIN is live and no wait is due: asking again once it's fixed works.
+                Log.w(TAG, "admin: PIN not shown for " + from.getHostAddress() + ": " + error);
+                o.put("overlay", false);
+                o.put("error", error);
+                return o;
+            }
             lastPinRequest = now;
             host.lastPinRequest = now;
-            pin = String.format(Locale.ROOT, "%06d", random.nextInt(1_000_000));
+            pin = next;
             pinOwner = from;
             pinExpires = now + PIN_TTL_MS;
-            admin.showPin(pin, PIN_TTL_MS, from.getHostAddress());
             Log.i(TAG, "admin: PIN shown for " + from.getHostAddress());
             o.put("ok", true);
             o.put("expiresIn", PIN_TTL_MS / 1000);
