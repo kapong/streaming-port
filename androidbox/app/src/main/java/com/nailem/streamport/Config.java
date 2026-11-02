@@ -60,9 +60,9 @@ final class Config {
     }
 
     /**
-     * ask=always: ask before every share and remember nothing, so a sender approved a minute ago is asked again
-     * (a reconnect while its share is still on the TV is not a new share; see {@code Hub.add}). Stored as its own
-     * boolean beside "ask", which installs before it already hold as a boolean.
+     * ask=always: ask before every share and remember nothing, so a sender approved a minute ago is asked again,
+     * as is one reconnecting mid-share. Stored as its own boolean beside "ask", which installs before it already
+     * hold as a boolean.
      */
     static boolean askAlways(Context c) {
         return ask(c) && prefs(c).getBoolean("ask_always", false);
@@ -142,12 +142,21 @@ final class Config {
                 }
                 e.putString("name", n);
                 break;
-            case "ask": {
-                boolean always = value.trim().equalsIgnoreCase("always");
-                e.putBoolean("ask", always || Boolean.parseBoolean(value));
-                e.putBoolean("ask_always", always);
+            case "ask":
+                switch (value.trim().toLowerCase(Locale.ROOT)) {
+                    case "always":
+                        e.putBoolean("ask", true).putBoolean("ask_always", true);
+                        break;
+                    case "true":
+                        e.putBoolean("ask", true).putBoolean("ask_always", false);
+                        break;
+                    case "false":
+                        e.putBoolean("ask", false).putBoolean("ask_always", false);
+                        break;
+                    default:
+                        throw new IllegalArgumentException("ask: true, false or always");
+                }
                 break;
-            }
             case "rebroadcast":
                 e.putBoolean("rebroadcast", Boolean.parseBoolean(value));
                 break;

@@ -52,7 +52,7 @@ public final class Hub {
     private final CopyOnWriteArrayList<Listener> listeners = new CopyOnWriteArrayList<>();
     /** Approvals since the receiver started (only with ask=true, never with always); see {@link Screen#approvalKey}. */
     private final Set<String> approved = new HashSet<>();
-    private volatile boolean askBeforeShowing;
+    private boolean askBeforeShowing;
     private boolean askEveryShare;
     private int nextId = 1;
     private Screen audible;
@@ -64,11 +64,11 @@ public final class Hub {
     private Hub() {
     }
 
-    /** everyShare (ask=always): every share waits for OK, and senders approved so far are forgotten. */
-    public synchronized void setAskBeforeShowing(boolean ask, boolean everyShare) {
-        askBeforeShowing = ask || everyShare;
-        askEveryShare = everyShare;
-        if (everyShare) approved.clear();
+    /** always (ask=always, only with ask): every share waits for OK, and senders approved so far are forgotten. */
+    public synchronized void setAskBeforeShowing(boolean ask, boolean always) {
+        askBeforeShowing = ask;
+        askEveryShare = ask && always;
+        if (askEveryShare) approved.clear();
     }
 
     public void setAudioSink(Session.AudioSink sink) {
@@ -171,7 +171,7 @@ public final class Hub {
         synchronized (this) {
             if (!hasRoomFor(s.peer())) return false;
             String key = s.approvalKey();
-            if (!askBeforeShowing || (key != null && (approved.contains(key) || reconnects(s, key)))) {
+            if (!askBeforeShowing || (key != null && approved.contains(key))) {
                 s.setState(Screen.State.ALLOWED);
             }
             screens.add(s);
@@ -186,20 +186,6 @@ public final class Hub {
         }, VIDEO_START_MS);
         notifyChanged();
         return true;
-    }
-
-    /**
-     * An AirPlay sender that comes back on a new connection while its approved screen is still on the TV (an
-     * overlapping reconnect, see {@link #MAX_PER_HOST}) continues that share, so it isn't asked again. A browser
-     * never reconnects: a second share from the same address is a new share.
-     */
-    private boolean reconnects(Screen s, String key) {
-        if (s.kind() != Screen.Kind.AIRPLAY) return false;
-        for (Screen o : screens) {
-            if (o.kind() == Screen.Kind.AIRPLAY && key.equals(o.approvalKey()) && o.state() == Screen.State.ALLOWED
-                    && !o.isClosed()) return true;
-        }
-        return false;
     }
 
     /** Called by a screen as it closes. */

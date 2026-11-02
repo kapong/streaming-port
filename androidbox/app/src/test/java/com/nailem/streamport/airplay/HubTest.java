@@ -3,6 +3,7 @@ package com.nailem.streamport.airplay;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+import org.junit.After;
 import org.junit.Test;
 
 import java.lang.reflect.Proxy;
@@ -33,7 +34,13 @@ public class HubTest {
                 });
     }
 
-    /** ask=always: an approval lasts as long as that share; the next share from the same sender is asked again. */
+    @After
+    public void reset() {
+        Hub.get().disconnectAll();
+        Hub.get().setAskBeforeShowing(false, false);
+    }
+
+    /** ask=always: an approval lasts as long as that share; any new share, even a reconnect mid-share, is asked. */
     @Test
     public void askAlwaysRemembersNoApproval() throws Exception {
         Hub hub = Hub.get();
@@ -49,16 +56,14 @@ public class HubTest {
         assertEquals(Screen.State.PENDING, first.state());
         hub.approve(first);
 
-        Screen reconnect = screen(Screen.Kind.AIRPLAY, "10.9.0.1"); // overlaps the approved screen: same share
+        Screen reconnect = screen(Screen.Kind.AIRPLAY, "10.9.0.1"); // overlaps the approved screen
         assertTrue(hub.add(reconnect));
-        assertEquals(Screen.State.ALLOWED, reconnect.state());
+        assertEquals(Screen.State.PENDING, reconnect.state());
         first.close();
         reconnect.close();
 
-        Screen again = screen(Screen.Kind.AIRPLAY, "10.9.0.1");
-        assertTrue(hub.add(again));
-        assertEquals(Screen.State.PENDING, again.state());
-        again.close();
-        hub.setAskBeforeShowing(false, false);
+        Screen browser = screen(Screen.Kind.BROWSER, "10.9.0.2");
+        assertTrue(hub.add(browser));
+        assertEquals(Screen.State.PENDING, browser.state());
     }
 }

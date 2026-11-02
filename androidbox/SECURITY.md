@@ -10,7 +10,7 @@ reads from the network can come from any of them. This file covers what was revi
   loopback, ULA, CGNAT), so a port forward from the internet gets nothing.
 - **Accepted by design (the default)**: senders are let in without asking, so anyone on the Wi-Fi can put their
   screen on the TV (up to the stream limit). `ask=true` brings back on-screen approval; `ask=always` asks for
-  every share and remembers no approval.
+  every new connection (a sender reconnecting mid-share included) and remembers no approval.
 - **What must not happen**: a sender reaching beyond its own tile (injecting into, tearing down or hijacking
   another sender), crashing or freezing the receiver, exhausting the 2 GB box, or anyone without the on-TV PIN
   changing settings or kicking people.
@@ -54,8 +54,8 @@ exceed the cap. The availability findings, all fixed:
 | 10 | Invalid Ed25519 point threw instead of 400 | Answers 400 |
 
 Notes from the same audit, accepted: with `ask=true`, approval is remembered by the sender-claimed device ID
-(spoofable; not the default). `ask=always` remembers nothing: only an AirPlay reconnect with the same device ID
-and address, while that sender's approved screen is still up, gets in without asking. Any sender brings Stream
+(spoofable; not the default). `ask=always` remembers nothing: every new connection, including a sender
+reconnecting mid-share, waits for OK. Any sender brings Stream
 Port to the front (that is the feature). The two crypto
 libraries (`eddsa` 0.3.0, `curve25519-java` 0.5.0) are unmaintained with no CVE known to the auditor; nothing here
 trusts them for authentication.

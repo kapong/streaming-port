@@ -2,6 +2,7 @@ package com.nailem.streamport;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
 import android.content.ContextWrapper;
@@ -49,5 +50,6 @@ public class ConfigTest {
         Config.set(c, "ask", "false");
         assertFalse(Config.ask(c));
         assertFalse(Config.askAlways(c));
+        assertThrows(IllegalArgumentException.class, () -> Config.set(c, "ask", "alway"));
     }
 }
