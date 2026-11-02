@@ -41,8 +41,8 @@ public final class Rebroadcaster {
     private static final int PACKETS_PER_DATAGRAM = 7;
 
     public interface Listener {
-        /** The rebroadcast ended on its own (the system stopped the capture, or an error). */
-        void onRebroadcastStopped();
+        /** {@code which} ended on its own (the system stopped the capture, or an error). */
+        void onRebroadcastStopped(Rebroadcaster which);
     }
 
     /** The screen capture while someone shares; null while the still picture is sent. Capture thread. */
@@ -293,7 +293,7 @@ public final class Rebroadcaster {
             Log.e(TAG, "rebroadcast: capture failed, stopping", e);
             new Thread(() -> {
                 stop();
-                listener.onRebroadcastStopped();
+                listener.onRebroadcastStopped(this);
             }, "rebroadcast-stop").start();
         }
     }

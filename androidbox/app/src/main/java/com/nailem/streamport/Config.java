@@ -176,7 +176,7 @@ final class Config {
     /**
      * A name fit for an mDNS service: printable characters only (no control or invisible formatting characters,
      * which could spoof another receiver in a sender's list), trimmed. Dots become spaces and leading underscores
-     * go: JmDNS puts the name on the wire unescaped, so "Room 3.2" would split into labels, and it drops a
+     * go: JmDNS doesn't escape dots in instance names, so "Room 3.2" would split into labels, and it drops a
      * leading "_".
      */
     static String cleanName(String value) {

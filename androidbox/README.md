@@ -170,8 +170,9 @@ adb shell am broadcast -n com.nailem.streamport/.SettingsReceiver -a com.nailem.
 
 Keys: `name` (what senders see), `ask` (`true` holds each new sender behind an "OK allow / BACK refuse" card),
 `max_res` (`1080p`, `1440p`, `4k`), `max_streams` (1 to 8), `rebroadcast` (`true`/`false`), `rebroadcast_res`
-(`720p`, `1080p`), `rebroadcast_fps` (5 to 30). The receiver restarts to apply a change made this way;
-the admin page applies them without a restart.
+(`720p`, `1080p`), `rebroadcast_fps` (5 to 30). A running receiver applies a change in place, as the admin
+page does, and senders already mirroring stay connected. If the receiver isn't running and Android won't start it
+from the background, the reply is `ok <key> (stored; applies when the receiver next starts)`.
 
 ## Testing without an iPhone or a laptop
 

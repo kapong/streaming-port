@@ -92,11 +92,8 @@ public final class StreamService extends Service implements Hub.Listener, AdminS
         boolean on = Config.rebroadcast(this);
         boolean changed = rebroadcaster != null && (rebroadcaster.height() != Config.rebroadcastHeight(this)
                 || rebroadcaster.fps() != Config.rebroadcastFps(this));
-        // A box may have one H.264 encoder: a new size or rate starts once the old encoder has let go of it.
-        if (rebroadcaster != null && (!on || changed)) stopRebroadcast(changed ? () -> {
-            if (running == this && Config.rebroadcast(this)) startRebroadcast();
-        } : null);
-        if (on && !changed) startRebroadcast();
+        if (rebroadcaster != null && (!on || changed)) stopRebroadcast();
+        if (on) startRebroadcast(); // after a stop, once the old encoder has let go
         sendIdleScreen();
         Hub.get().refresh();
         Log.i(TAG, "settings reloaded");
@@ -140,6 +137,8 @@ public final class StreamService extends Service implements Hub.Listener, AdminS
         hub.addListener(this);
 
         receiverName = Config.name(this);
+        // A name stored with dots before they were mapped: the box name (Chromecast) may still have them.
+        if (Config.cleanName(BoxName.get(this)).equals(receiverName)) BoxName.set(this, receiverName);
         server = new RtspServer(Config.name(this), Config.deviceId(this));
         try {
             port = server.start();
@@ -246,11 +245,23 @@ public final class StreamService extends Service implements Hub.Listener, AdminS
         if (s != null) s.startCapture(resultCode, data);
     }
 
+    /**
+     * The old encoder is still being let go of (a box may have just one H.264 encoder), and whether to start again
+     * once it has. A rebroadcast that stopped on its own doesn't start again by itself. Main thread.
+     */
+    private boolean rebroadcastStopping, restartWanted;
+
     /** Starts sending, with the idle screen until someone shares. Idempotent. Main thread. */
     private void startRebroadcast() {
+        if (rebroadcastStopping) {
+            restartWanted = true;
+            return;
+        }
         if (rebroadcaster != null) return;
         com.nailem.streamport.rebroadcast.Rebroadcaster r = new com.nailem.streamport.rebroadcast.Rebroadcaster(
-                () -> new android.os.Handler(getMainLooper()).post(this::stopRebroadcast),
+                which -> new android.os.Handler(getMainLooper()).post(() -> {
+                    if (rebroadcaster == which) stopRebroadcast(); // not a replacement started since
+                }),
                 Config.rebroadcastHeight(this), Config.rebroadcastFps(this));
         try {
             r.start();
@@ -300,20 +311,22 @@ public final class StreamService extends Service implements Hub.Listener, AdminS
         startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK);
     }
 
+    /** Stops sending. Main thread. */
     private void stopRebroadcast() {
-        stopRebroadcast(null);
-    }
-
-    /** Stops sending; {@code then}, if any, runs on the main thread once the encoder is released. Main thread. */
-    private void stopRebroadcast(Runnable then) {
         Hub.get().setEncoding(false);
         if (rebroadcaster == null) return;
         com.nailem.streamport.rebroadcast.Rebroadcaster r = rebroadcaster;
         rebroadcaster = null;
         capturing = false;
+        rebroadcastStopping = true;
         new Thread(() -> {
             r.stop();
-            if (then != null) new android.os.Handler(getMainLooper()).post(then);
+            new android.os.Handler(getMainLooper()).post(() -> {
+                rebroadcastStopping = false;
+                boolean again = restartWanted;
+                restartWanted = false;
+                if (again && running == this && Config.rebroadcast(this)) startRebroadcast();
+            });
         }, "rebroadcast-stop").start();
         startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK);
         Hub.get().refresh();
