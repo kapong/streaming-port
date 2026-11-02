@@ -66,4 +66,16 @@ public class HubTest {
         assertTrue(hub.add(browser));
         assertEquals(Screen.State.PENDING, browser.state());
     }
+
+    /** Turning ask off lets in a sender still waiting for OK. */
+    @Test
+    public void askOffLetsWaitingIn() throws Exception {
+        Hub hub = Hub.get();
+        hub.setAskBeforeShowing(true, false);
+        Screen waiting = screen(Screen.Kind.AIRPLAY, "10.9.0.3");
+        assertTrue(hub.add(waiting));
+        assertEquals(Screen.State.PENDING, waiting.state());
+        hub.setAskBeforeShowing(false, false);
+        assertEquals(Screen.State.ALLOWED, waiting.state());
+    }
 }

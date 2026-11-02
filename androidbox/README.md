@@ -177,7 +177,7 @@ the same sender is asked again next time, even when it reconnects mid-share),
 (`720p`, `1080p`), `rebroadcast_fps` (5 to 30). `name`, `ask`, `max_res`, `max_streams` and `rebroadcast` can
 also be changed on the admin page (for `ask`, "Ask before showing": Off = `false`, Ask once per sender = `true`,
 Ask every time = `always`). A running receiver applies a change in place, as the admin page does, and senders
-already mirroring stay connected. If the receiver isn't running and Android won't start it
+already mirroring stay connected (turning `ask` off also lets in any sender still waiting for OK). If the receiver isn't running and Android won't start it
 from the background, the reply is `ok <key> (stored; applies when the receiver next starts)`.
 
 ## Testing without an iPhone or a laptop

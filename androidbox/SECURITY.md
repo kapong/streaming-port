@@ -11,7 +11,7 @@ reads from the network can come from any of them. This file covers what was revi
 - **Accepted by design (the default)**: senders are let in without asking, so anyone on the Wi-Fi can put their
   screen on the TV (up to the stream limit). `ask=true` brings back on-screen approval; `ask=always` asks for
   every new connection (a sender reconnecting mid-share included) and remembers no approval. It is set over adb or
-  on the logged-in admin page ("Ask before showing"), so whoever holds an admin session can also turn it off.
+  on the logged-in admin page ("Ask before showing"), so whoever holds an admin session can also turn it off (which also lets in anyone waiting for OK).
 - **What must not happen**: a sender reaching beyond its own tile (injecting into, tearing down or hijacking
   another sender), crashing or freezing the receiver, exhausting the 2 GB box, or anyone without the on-TV PIN
   changing settings or kicking people.

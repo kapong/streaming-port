@@ -62,7 +62,8 @@ async function refresh() {
   } catch (e) { /* login screen already shown on 401 */ }
 }
 
-function render(s) {
+/** force: also reset the control being used (after a failed save); a typed name is kept to retry. */
+function render(s, force) {
   state = s;
   if (document.activeElement !== $('name')) $('name').value = s.name;
   $('box-name-hint').textContent = s.canRenameBox
@@ -70,7 +71,7 @@ function render(s) {
     : 'Chromecast and Miracast are still \u201C' + s.boxName + '\u201D: renaming them needs a one-time adb grant (see the README).';
   $('miracast-card').hidden = !s.miracast;
   if (s.rebroadcast) {
-    if (document.activeElement !== $('rb-on')) $('rb-on').checked = s.rebroadcast.enabled;
+    if (force || document.activeElement !== $('rb-on')) $('rb-on').checked = s.rebroadcast.enabled;
     $('rb-url').textContent = s.rebroadcast.url;
     $('rb-status').textContent = !s.rebroadcast.enabled ? 'Off.'
       : !s.rebroadcast.live ? 'On: starting.'
@@ -78,7 +79,7 @@ function render(s) {
       : '\u25CF Live now: sending the welcome screen until someone shares.';
   }
   if (s.ask) {
-    if (document.activeElement !== $('ask')) $('ask').value = s.ask;
+    if (force || document.activeElement !== $('ask')) $('ask').value = s.ask;
     $('ask-hint').textContent = ASK_HINTS[s.ask] || '';
   }
   for (const b of document.querySelectorAll('.seg button')) b.classList.toggle('on', b.dataset.mode === s.layout);
@@ -89,7 +90,7 @@ function render(s) {
   }[s.layout] || '';
   $('count').textContent = s.senders.length + ' of ' + s.max;
   caps = s.maxStreamsFor || caps;
-  const editing = $('limits-form').contains(document.activeElement);
+  const editing = !force && $('limits-form').contains(document.activeElement);
   if (!editing) {
     $('resolution').value = s.resolution;
     fillStreamOptions(s.maxStreams);
@@ -168,6 +169,7 @@ async function act(fn, done) {
     say($('msg'), '');
     if (done) toast(done(s));
   } catch (e) {
+    if (state) render(state, true); // controls snap back to what the TV has
     say($('msg'), e.message, true);
     toast('Not saved: ' + e.message, true);
   }
@@ -220,11 +222,10 @@ $('rb-on').onchange = () => {
 $('ask').onchange = () => {
   const mode = $('ask').value;
   act(() => api('ask', { mode }), () => ({
-    off: 'Ask before showing is off: new senders show at once.',
-    once: 'Saved: each new sender waits for OK on the TV remote once.',
-    always: 'Saved: every new connection waits for OK on the TV remote.',
-  }[mode] + ' Screens already showing stay.'));
-  $('ask').blur();
+    off: 'Ask before showing is off: new senders, and any still waiting, show at once.',
+    once: 'Saved: each new sender waits for OK on the TV remote once. Screens already showing stay.',
+    always: 'Saved: every new connection waits for OK on the TV remote. Screens already showing stay.',
+  }[mode]));
 };
 
 $('open-miracast').onclick = () => {
