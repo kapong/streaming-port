@@ -41,6 +41,11 @@ final class Config {
         return c.getString(R.string.default_receiver_name);
     }
 
+    /** Whether Stream Port stored a name itself (a rename), not just took the box's. */
+    static boolean hasStoredName(Context c) {
+        return prefs(c).contains("name");
+    }
+
     // mDNS labels are 63 bytes and the AirTunes record adds "XXXXXXXXXXXX@" (13); Thai is 3 bytes a letter.
     private static boolean fits(String n) {
         return !n.isEmpty() && n.length() <= 40 && n.getBytes(java.nio.charset.StandardCharsets.UTF_8).length <= 50;

@@ -92,7 +92,7 @@ public final class StreamService extends Service implements Hub.Listener, AdminS
         boolean on = Config.rebroadcast(this);
         boolean changed = rebroadcaster != null && (rebroadcaster.height() != Config.rebroadcastHeight(this)
                 || rebroadcaster.fps() != Config.rebroadcastFps(this));
-        if (rebroadcaster != null && (!on || changed)) stopRebroadcast();
+        if (!on || changed) stopRebroadcast();
         if (on) startRebroadcast(); // after a stop, once the old encoder has let go
         sendIdleScreen();
         Hub.get().refresh();
@@ -137,8 +137,11 @@ public final class StreamService extends Service implements Hub.Listener, AdminS
         hub.addListener(this);
 
         receiverName = Config.name(this);
-        // A name stored with dots before they were mapped: the box name (Chromecast) may still have them.
-        if (Config.cleanName(BoxName.get(this)).equals(receiverName)) BoxName.set(this, receiverName);
+        // A name Stream Port stored with dots before they were mapped: the box name (Chromecast) may still have them.
+        // Not a box name the owner set in Android settings with no stored name: that one stays as it is.
+        if (Config.hasStoredName(this) && Config.cleanName(BoxName.get(this)).equals(receiverName)) {
+            BoxName.set(this, receiverName);
+        }
         server = new RtspServer(Config.name(this), Config.deviceId(this));
         try {
             port = server.start();
@@ -247,7 +250,7 @@ public final class StreamService extends Service implements Hub.Listener, AdminS
 
     /**
      * The old encoder is still being let go of (a box may have just one H.264 encoder), and whether to start again
-     * once it has. A rebroadcast that stopped on its own doesn't start again by itself. Main thread.
+     * once it has. Main thread.
      */
     private boolean rebroadcastStopping, restartWanted;
 
@@ -320,13 +323,18 @@ public final class StreamService extends Service implements Hub.Listener, AdminS
         capturing = false;
         rebroadcastStopping = true;
         new Thread(() -> {
-            r.stop();
-            new android.os.Handler(getMainLooper()).post(() -> {
-                rebroadcastStopping = false;
-                boolean again = restartWanted;
-                restartWanted = false;
-                if (again && running == this && Config.rebroadcast(this)) startRebroadcast();
-            });
+            try {
+                r.stop();
+            } catch (RuntimeException e) {
+                Log.w(TAG, "rebroadcast stop failed: " + e);
+            } finally {
+                new android.os.Handler(getMainLooper()).post(() -> {
+                    rebroadcastStopping = false;
+                    boolean again = restartWanted;
+                    restartWanted = false;
+                    if (again && running == this && Config.rebroadcast(this)) startRebroadcast();
+                });
+            }
         }, "rebroadcast-stop").start();
         startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK);
         Hub.get().refresh();
