@@ -5,16 +5,39 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Share to the TV</title>
   <link rel="stylesheet" href="/share.css">
+  <script src="/watch.js" defer></script>
   <script src="/share.js" defer></script>
 </head>
 <body>
   <main>
     <div class="brand"><span class="mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>StreamPort
-      <span class="places" id="places" hidden></span></div>
-    <h1>Share to <span id="tv">the TV</span></h1>
+      <span class="places" id="places" hidden></span><span class="places" id="viewers" hidden></span></div>
+    <h1><small id="verb">Share to</small><span id="tv">the TV</span></h1>
     <div class="rule" aria-hidden="true"></div>
 
+    <section id="watching" hidden>
+      <div class="card">
+        <div class="stage" id="w-stage">
+          <video id="w-video" muted autoplay playsinline></video>
+        </div>
+        <p id="w-status" class="status wait" role="status" aria-live="polite">Connecting</p>
+        <p id="w-detail" class="detail"></p>
+        <p class="keep">Sharing from this page stops watching here, so the TV doesn't show itself.</p>
+        <div class="row">
+          <button id="w-full" class="btn">Full screen</button>
+          <button id="w-stop" class="btn">Stop watching</button>
+        </div>
+      </div>
+    </section>
+
     <section id="setup">
+      <div class="pick" id="watch-card" hidden>
+        <button class="choice watch" id="watch">
+          <span class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#30E094" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M10 8.5v5l4-2.5z"/></svg></span>
+          <span><span class="t">Watch TV</span>
+            <span class="s">See the TV on this device. Video only, no sound.</span></span>
+        </button>
+      </div>
       <p class="lead">Your screen or camera shows up on the TV next to the others. One way only: nothing comes back
         to you.</p>
       <div class="card">
@@ -34,9 +57,8 @@
         </div>
         <label class="switch"><input type="checkbox" id="mic"><span>Microphone with the camera<small>Off by default:
           a phone near the TV can echo.</small></span></label>
-        <div class="notice" id="rebroadcast-notice" hidden><span class="dot"></span><span><b>This TV is rebroadcast to
-          the network.</b> Anyone here can watch it in VLC at <code id="rebroadcast-url">udp://@239.255.42.42:5004</code>.
-          Don't share anything private.</span></div>
+        <div class="notice" id="notice"><span class="dot"></span><span><b>Anyone on this network can watch this TV,</b> including
+          what you share. Don't share anything private.</span></div>
       </div>
       <p class="tips" id="setup-hint" hidden></p>
     </section>
@@ -69,6 +91,8 @@
         <li>Android phones: browsers can't share the screen (use Cast from the quick settings), but the camera works
           here.</li>
         <li>Nothing on the TV after 20 seconds? Stop, and share again.</li>
+        <li>Watching: keep this device on the TV's Wi-Fi. "TV busy" means every viewer place is taken; the page tries
+          again by itself.</li>
       </ul>
     </details>
     <footer id="footer"></footer>

@@ -92,23 +92,27 @@ public final class StreamActivity extends Activity implements Hub.Listener, Tile
         FrameLayout.LayoutParams hp = new FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
         hp.bottomMargin = 40;
         root.addView(hint, hp);
-        // Shown while the TV is rebroadcast to the LAN, so everyone in the room knows it is being sent on.
+        // Shown while someone watches the TV over WHEP, so everyone in the room knows it is being sent on.
         liveMark = new TextView(this);
-        liveMark.setText(R.string.live_mark);
         liveMark.setTextColor(0xE6FFFFFF);
         liveMark.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
         liveMark.setBackgroundResource(R.drawable.tile_label_bg);
         liveMark.setPadding(20, 6, 20, 6);
         liveMark.setVisibility(View.GONE);
-        FrameLayout.LayoutParams lmp = new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.END);
-        lmp.setMargins(0, 24, 24, 0);
-        root.addView(liveMark, lmp);
+        // Bottom right, clear of the system's screen-cast chip (top right while a capture runs), the tiles'
+        // name pills (bottom left) and the hint (bottom centre). Margins are set with the idle scale below so
+        // it also sits just above the idle footer, under the QR card.
+        root.addView(liveMark, new FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM | Gravity.END));
         setContentView(root);
         root.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> {
             if (r - l != or - ol || b - t != ob - ot) {
                 float scale = Math.min((r - l) / (float) IdleView.W, (b - t) / (float) IdleView.H);
                 idle.setScaleX(scale);
                 idle.setScaleY(scale);
+                // Right edge in line with the idle footer; bottom just above it (footer top is 76 px up).
+                FrameLayout.LayoutParams lmp = (FrameLayout.LayoutParams) liveMark.getLayoutParams();
+                lmp.setMargins(0, 0, Math.round(IdleView.SIDE * scale), Math.round(96 * scale));
+                liveMark.setLayoutParams(lmp);
                 relayout();
             }
         });
@@ -182,14 +186,18 @@ public final class StreamActivity extends Activity implements Hub.Listener, Tile
         }
         // A primary waiting on the overlay has no tile: a screen on show takes over (and is heard).
         if (!tiles.isEmpty() && !tiles.containsKey(hub.primary())) hub.setPrimary(tiles.keySet().iterator().next());
+        // Idle or not: the room sees how many watch.
+        int viewers = com.nailem.streamport.webrtc.Fanout.viewers();
+        liveMark.setText(getResources().getQuantityString(R.plurals.watching, viewers, viewers));
+        liveMark.setVisibility(viewers > 0 ? View.VISIBLE : View.GONE);
+        liveMark.bringToFront();
         if (tiles.isEmpty()) {
             getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
             if (openedAutomatically) {
                 finish();
                 return;
             }
-            idle.bind(Config.name(this), ipv4(), com.nailem.streamport.airplay.Limits.maxStreams(),
-                    Config.rebroadcast(this));
+            idle.bind(Config.name(this), ipv4(), com.nailem.streamport.airplay.Limits.maxStreams());
             idle.setVisibility(View.VISIBLE);
             main.removeCallbacks(idleTimeout);
             main.postDelayed(idleTimeout, IDLE_MS);
@@ -197,8 +205,6 @@ public final class StreamActivity extends Activity implements Hub.Listener, Tile
         }
         main.removeCallbacks(idleTimeout);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-        liveMark.setVisibility(Config.rebroadcast(this) ? View.VISIBLE : View.GONE);
-        liveMark.bringToFront();
         if (!captureAsked && StreamService.wantsCapture(this)) {
             // With the adb grant (appops PROJECT_MEDIA allow) Android answers at once, without a dialog.
             captureAsked = true;

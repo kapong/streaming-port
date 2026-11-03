@@ -20,13 +20,14 @@ adb connect <box-ip>:5555                       # accept the prompt on the TV th
 adb install -r streaming-port.apk
 adb shell appops set com.nailem.streamport SYSTEM_ALERT_WINDOW allow            # comes to the front when someone shares (with ask: asks on a card first)
 adb shell pm grant com.nailem.streamport android.permission.WRITE_SECURE_SETTINGS  # optional: same name for Cast
-adb shell appops set com.nailem.streamport PROJECT_MEDIA allow                  # optional: LAN rebroadcast
+adb shell appops set com.nailem.streamport PROJECT_MEDIA allow                  # optional: watching the TV (WHEP)
 adb shell am start -n com.nailem.streamport/.StreamActivity                     # first start; afterwards it starts at boot
 ```
 
 Then open the admin page at `https://<box-ip>:8089` (log in with the PIN the TV shows) to rename the receiver and set
 the limits. On a box like the Xiaomi TV Box S, **720p and 4 screens** keeps CPU and RAM under 80% (measurements
-below); 1080p suits 1 to 3 screens. Browsers share at `https://<box-ip>:9443` (the TV shows it as a QR code).
+below); 1080p suits 1 to 3 screens. Browsers watch or share at `https://<box-ip>:9443` (the TV shows it as a QR code;
+turn watching off with `watch` or on the admin page).
 Updates: install a newer release the same way (`adb install -r`); settings stay.
 
 The receiver's name starts as the box's own device name (Settings > Device Preferences > About > Device name), so
@@ -58,12 +59,12 @@ Open `https://BOX_IP:9443` (the TV's idle screen shows it as a QR code), type a 
 Either becomes a tile like an AirPlay sender: same layout, primary, limits, quality dot, kick. The admin page lists it
 as "Screen · Chrome on Windows" or "Camera · Chrome on Android".
 
-The page (`assets/share/`) has the TV welcome screen's look (Outfit, served as `/outfit.ttf`): free places, two
-choices (screen, camera), the microphone switch, the rebroadcast warning with its address, then a preview with a
+The page (`assets/share/`) has the TV welcome screen's look (Outfit, served as `/outfit.ttf`): "Watch TV" (below),
+free places, two choices (screen, camera), the microphone switch, the warning that anyone on the network can watch, then a preview with a
 three-step progress bar and "On the TV now". Design mock: `mock/share/` (compare old and new at
 `http://localhost:8766/new/compare.html` after `python3 -I androidbox/mock/share_server.py`). To test the real
 page end to end without the self-signed certificate, `mock/share_server.py --box https://BOX_IP:9443` serves it
-on `http://localhost:8767` and passes `/config` and `/whip` to the TV.
+on `http://localhost:8767` and passes `/config`, `/watch/status`, `/whip` and `/whep` to the TV.
 
 - **One way only**, WHIP style (RFC 9725): the page POSTs its SDP offer to `/whip` (`application/sdp`), gets `201`, the
   answer and a secret `Location`; DELETE on that URL ends the share. The TV sends nothing back; the page shows only a
@@ -82,29 +83,44 @@ on `http://localhost:8767` and passes `/config` and `/whip` to the TV.
 - **Limits**: the same as AirPlay (max screens, max resolution, 2 per device), 10 offers per device per minute, video
   must arrive within 20 s, a dropped connection gets 8 s to come back.
 
-## Rebroadcast to the LAN (multicast, for VLC)
+## Watching the TV (WHEP)
 
-Off by default. When switched on (admin page, or the `rebroadcast` setting), an MPEG-TS stream goes to the LAN all
-the time: the welcome screen (`IdleView`, drawn off screen) while nobody shares, the TV itself while someone does.
-So viewers never see whatever else the TV shows (Home, other apps). Anyone on the Wi-Fi can watch: VLC, Open Network
-Stream, `udp://@239.255.42.42:5004` (or `ffplay udp://239.255.42.42:5004`). The welcome screen shows a red notice
-with that address, the tiles a small "Live on the network" mark, and the share page warns senders while it is on.
-Idle with the welcome screen on air the box uses about 12% CPU.
+Anyone on the Wi-Fi can watch the TV in a browser on the share page, `https://BOX_IP:9443/`: one QR code and one
+page for watching and sharing. "Watch TV" plays the TV on the page; nothing connects (and the TV's encoder stays off)
+until it is tapped, and watching needs no sharing. Starting to share from the page stops watching there, so the TV
+doesn't show itself over and over. Watching is on by default and can be turned off (setting `watch`, or "Watching
+the TV" on the admin page): off hides "Watch TV", ends every viewer's stream at once, `/whep` answers `403`, and a
+page still watching says "Watching is turned off on this TV" and starts again by itself once it is turned back on.
 
-- TTL 1: the packets never leave the LAN segment. 7 TS packets per datagram (1316 bytes).
-- 1280x720 at 12 fps by default (`rebroadcast_res`, `rebroadcast_fps`; it is for presentations, where anything over
-  10 fps is fine); bitrate scales from 4 Mb/s at 1080p, and still screens cost almost nothing (the last frame is repeated every 100 ms for late joiners).
+- **One https page**: viewers see the self-signed certificate's warning on their first visit too, as senders do. The
+  page and its `/whep` share one origin (no CORS).
+- **The client** (`assets/share/watch.js`): one muted video, a WHEP client (POST the offer with every candidate,
+  apply the answer, `DELETE` the resource when the page closes), retries with backoff when the TV is busy or the
+  connection drops, and "N watching" from `GET /watch/status` (`{viewers, max, enabled}`) every 4 s while watching.
+  Design work: `python3 -I androidbox/mock/share_server.py` (`--watch-off` shows the off state; `/whep` answers
+  `503` there, as a busy TV does).
+- **Any WHEP client** works too: `POST /whep` on 9443 with a receive-only video offer (`application/sdp`, no trickle
+  ICE); `DELETE` the returned `Location` to stop.
+
+One hardware H.264 encode is shared by every viewer, and it runs only while someone watches: the welcome screen
+(`IdleView`, drawn off screen) while nobody shares, the TV itself while someone does, so viewers never see whatever else the TV shows (Home,
+other apps). While watching is on, the welcome screen's browser card says "Watch or share" (its QR code is the share
+page's); the TV shows a small "● N watching" mark top right while anyone watches
+(idle or not), and the share page warns senders that the TV can be watched.
+
+- At most `watch_max` viewers (default 20, 1 to 30) and 4 per address; past that `503`. Video only.
+- 1280x720 at 12 fps by default (`rebroadcast_res`, `rebroadcast_fps`; the names are from the multicast output this
+  replaced; it is for presentations, where anything over 10 fps is fine); bitrate scales from 4 Mb/s at 1080p, and
+  still screens cost almost nothing (the last frame is repeated every 100 ms). Changing either drops the viewers,
+  who reconnect to the new encode.
 - Capture: MediaProjection mirror display into an RGBA ImageReader, libyuv to I420, the hardware AVC encoder,
-  `rebroadcast/TsMuxer.java`. The encoder's own surface input manages only about 10 MP/s on this box (1080p at
-  5 fps), hence the CPU conversion.
+  `webrtc/Fanout.java`. The encoder's own surface input manages only about 10 MP/s on this box (1080p at 5 fps),
+  hence the CPU conversion.
 - Android asks for screen-capture consent; one adb grant makes it silent (needed, the TV has no one to click OK):
 
 ```bash
 adb shell appops set com.nailem.streamport PROJECT_MEDIA allow
 ```
-
-Check what the LAN receives with `tools/multicast_probe.py --iface <this Mac's LAN IPv4> --seconds 30`: frame rate,
-Mb/s and lost TS packets (from the continuity counters).
 
 ## How it behaves
 
@@ -140,7 +156,8 @@ and the browser warns once about the self-signed certificate, as on the share pa
 TV", type the 6-digit code from the TV, and the browser stays logged in for 30 days. From there: rename the
 receiver, switch layout, pick the primary screen, choose whether new senders need OK on the remote (Ask before
 showing: off, once per sender, every time), set the max resolution and max screens, see each sender's
-address, resolution and network quality (Mb/s, fps, jitter), kick a sender, and switch the TV to Miracast. Every
+address, resolution and network quality (Mb/s, fps, jitter), kick a sender, turn watching the TV on or off (and see
+how many watch), and switch the TV to Miracast. Every
 save shows what changed and when it applies. Details in `SECURITY.md`. To work on the page without a TV,
 `python3 -I androidbox/mock/admin_server.py` serves it at `http://127.0.0.1:8768` with four made-up senders.
 
@@ -179,8 +196,10 @@ refuses after 30 s, and the tiles come up only once a sender is approved. Grant 
 from the install steps: without it the prompt shows (on the new sender's tile) only if Stream Port is already in
 front, since Android 14 won't let it come to the front by itself; otherwise a waiting sender is invisible, with no
 timeout, until it gives up),
-`max_res` (`1080p`, `1440p`, `4k`), `max_streams` (1 to 8), `rebroadcast` (`true`/`false`), `rebroadcast_res`
-(`720p`, `1080p`), `rebroadcast_fps` (5 to 30). `name`, `ask`, `max_res`, `max_streams` and `rebroadcast` can
+`max_res` (`1080p`, `1440p`, `4k`), `max_streams` (1 to 8), `rebroadcast_res`
+(`720p`, `1080p`) and `rebroadcast_fps` (5 to 30) for the encode WHEP viewers watch, `watch_max` (1 to 30),
+`watch` (`true`, the default: anyone on the Wi-Fi may watch the TV; `false` ends every viewer's stream and refuses new
+ones). `name`, `ask`, `watch`, `max_res` and `max_streams` can
 also be changed on the admin page (for `ask`, "Ask before showing": Off = `false`, Ask once per sender = `true`,
 Ask every time = `always`). A running receiver applies a change in place, as the admin page does, and senders
 already mirroring stay connected (turning `ask` off also lets in any sender still waiting for OK). If the receiver isn't running and Android won't start it
@@ -225,13 +244,15 @@ service about 22%, PSS about 52 MB. A single idle Mac desktop costs about 0%.
 - One stream above 1440p at a time. A second 4K stream, or more than one 1080p stream next to a 4K one, is refused
   by the decoder ("insufficient resources", OMX `0x80001000`). Past that Android's codec layer even crashed the app,
   so `Hub.fitsDecoder` now turns a screen away as soon as its size is known: budget 4K + 1080p, or 4K (four 1080p)
-  while the rebroadcast encoder runs.
+  while the shared encoder runs (someone watches).
 - 4 x 1080p30 fit in memory but decode only about 20 fps each (frames dropped); 3 x 1080p30 about 27 fps. Real
   screens send far fewer frames than a test pattern.
 - The box's display is 1920x1080 at 59.94 Hz, so a 4K stream is scaled down on the GPU: 20% of UI frames janky with
   one 4K tile, with or without the rebroadcast. `max_res` 1080p (or 1440p) is the sensible setting here.
 
 **Acceptance test** (pass: CPU and RAM under 80%, no stutter, no lost packets; rebroadcast on at 720p, 10-15 fps).
+Measured with the UDP multicast output that WHEP has since replaced; the capture and encode it measured are the
+ones WHEP viewers now share.
 Senders at 30 fps are full-motion test patterns, the worst case; 10 fps is closer to a presentation (a Mac showing
 slides sends a few frames a second):
 
@@ -268,10 +289,10 @@ is 960x540 on the TV, so 720p senders lose nothing; 1080p only helps a single fu
 | `admin/AdminServer.java`, `admin/PinOverlay.java`, `assets/admin/` | Admin page: PIN login, JSON API, the page itself |
 | `airplay/Screen.java` | What a tile shows, whatever it is: an AirPlay `Session` or a `BrowserScreen` |
 | `webrtc/ShareServer.java`, `webrtc/BrowserScreen.java`, `webrtc/WebRtcEngine.java` | Browser sharing: HTTPS share page and WHIP endpoint (port 9443), one share, the WebRTC engine |
-| `webrtc/SelfSignedCert.java`, `assets/share/` | The share page's certificate (hand-written DER), the page itself |
+| `webrtc/SelfSignedCert.java`, `assets/share/` | The share page's certificate (hand-written DER), the page itself (sharing, and watching with `watch.js`) |
 | `StreamActivity.java`, `TileView.java`, `TileLayout.java` | Screen, tiles, dynamic and grid layouts |
 | `VideoDecoder.java`, `AudioPlayer.java` | Hardware H.264 decode per tile; AAC-ELD audio for the focused tile |
-| `rebroadcast/Rebroadcaster.java`, `rebroadcast/TsMuxer.java` | LAN rebroadcast: mirror capture, libyuv, encoder, MPEG-TS over UDP multicast |
+| `rebroadcast/Rebroadcaster.java`, `webrtc/Fanout.java`, `webrtc/Whep.java` | Watching the TV: mirror capture, libyuv, one encoder, fanned out to WHEP viewers; the on/off switch |
 | `StreamService.java`, `Advertiser.java` | Background service, mDNS (`_airplay._tcp`, `_raop._tcp`) via JmDNS on the active network's IPv4 address |
 
 Security review: see `SECURITY.md`.

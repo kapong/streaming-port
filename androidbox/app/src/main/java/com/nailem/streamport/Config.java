@@ -69,28 +69,34 @@ final class Config {
     }
 
     /**
-     * Rebroadcast defaults: light enough next to four 720p screens (measured 2026-10-27: CPU 78% at 12 fps, 79% at
-     * 15). It is for presentations, so 12 fps is plenty (anything over 10 is fine).
+     * Defaults of the encode WHEP viewers watch: light enough next to four 720p screens (measured 2026-10-27: CPU
+     * 78% at 12 fps, 79% at 15). It is for presentations, so 12 fps is plenty (anything over 10 is fine). The
+     * settings keep their "rebroadcast_" names from when this encode also went to UDP multicast.
      */
     static final int REBROADCAST_HEIGHT = 720;
     static final int REBROADCAST_FPS = 12;
 
-    /**
-     * Rebroadcast what the TV shows to the LAN (UDP multicast, for VLC) while someone is sharing. Off by default:
-     * when on, anyone on the network can watch whatever is shared.
-     */
-    static boolean rebroadcast(Context c) {
-        return prefs(c).getBoolean("rebroadcast", false);
-    }
-
-    /** The rebroadcast's height: 720 or 1080 (16:9). */
+    /** The viewers' encode height: 720 or 1080 (16:9). */
     static int rebroadcastHeight(Context c) {
         return prefs(c).getInt("rebroadcast_res", REBROADCAST_HEIGHT);
     }
 
-    /** The rebroadcast's frame rate, 5 to 30. */
+    /** The viewers' encode frame rate, 5 to 30. */
     static int rebroadcastFps(Context c) {
         return prefs(c).getInt("rebroadcast_fps", REBROADCAST_FPS);
+    }
+
+    /** At most this many watch the TV over WHEP at once: each costs about the stream's bitrate in uplink, and CPU. */
+    static int watchMax(Context c) {
+        return prefs(c).getInt("watch_max", com.nailem.streamport.webrtc.Fanout.DEFAULT_MAX_VIEWERS);
+    }
+
+    /**
+     * Whether anyone on the LAN may watch the TV ("Watch TV" on the share page, WHEP). On by default, like sharing: the share page
+     * and the TV say so. Off ends every viewer's stream.
+     */
+    static boolean watch(Context c) {
+        return prefs(c).getBoolean("watch", true);
     }
 
     /** Pushes the stored resolution and stream limits into {@link Limits}. */
@@ -157,9 +163,6 @@ final class Config {
                         throw new IllegalArgumentException("ask: true, false or always");
                 }
                 break;
-            case "rebroadcast":
-                e.putBoolean("rebroadcast", Boolean.parseBoolean(value));
-                break;
             case "rebroadcast_res":
                 if (!value.trim().equals("720p") && !value.trim().equals("1080p")) {
                     throw new IllegalArgumentException("rebroadcast_res: 720p or 1080p");
@@ -177,6 +180,29 @@ final class Config {
                 e.putInt("rebroadcast_fps", f);
                 break;
             }
+            case "watch_max": {
+                int max;
+                try {
+                    max = Integer.parseInt(value.trim());
+                } catch (NumberFormatException ex) {
+                    max = -1;
+                }
+                if (max < 1 || max > 30) throw new IllegalArgumentException("watch_max: a number from 1 to 30");
+                e.putInt("watch_max", max);
+                break;
+            }
+            case "watch":
+                switch (value.trim().toLowerCase(Locale.ROOT)) {
+                    case "true":
+                        e.putBoolean("watch", true);
+                        break;
+                    case "false":
+                        e.putBoolean("watch", false);
+                        break;
+                    default:
+                        throw new IllegalArgumentException("watch: true or false");
+                }
+                break;
             case "max_res":
                 e.putString("max_res", Limits.Resolution.parse(value).key);
                 break;

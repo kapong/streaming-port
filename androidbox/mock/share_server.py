@@ -1,14 +1,21 @@
 """Serves the share page for design work on this Mac: the app's real page at / and the redesign mock at /new/.
 /config answers like the TV does; nothing is sent anywhere. python3 -I streamport/mock/share_server.py
 
-With --box https://BOX_IP:9443 (port 8767), /config and /whip go to that TV instead, so the page can be tested
+Watching the TV on the same page: a made-up /watch/status, and /whep answers 503 (no TV here), or 403 with
+--watch-off, which also turns watching off in /config and /watch/status.
+
+With --box https://BOX_IP:9443 (port 8767), /config, /watch/status, /whip and /whep go to that TV instead, so the
+page can be tested
 end to end from localhost (a secure context) without the TV's self-signed certificate in the browser."""
 import http.server, json, os, ssl, sys, urllib.request
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 REAL = os.path.join(ROOT, "..", "app", "src", "main", "assets", "share")
 NEW = os.path.join(ROOT, "share")
-CONFIG = {"name": "Meeting Room", "maxWidth": 1280, "maxHeight": 720, "fps": 30, "free": 3, "max": 4, "rebroadcast": True}
+WATCHING = "--watch-off" not in sys.argv
+CONFIG = {"name": "Meeting Room", "maxWidth": 1280, "maxHeight": 720, "fps": 30, "free": 3, "max": 4,
+          "watch": WATCHING}
+STATUS = {"viewers": 3 if WATCHING else 0, "max": 20, "enabled": WATCHING}
 
 
 BOX = sys.argv[sys.argv.index("--box") + 1] if "--box" in sys.argv else None
@@ -38,14 +45,29 @@ def to_box(handler, method):
     handler.wfile.write(data)
 
 
+def answer(handler, status, data, kind, headers=()):
+    handler.send_response(status)
+    handler.send_header("Content-Type", kind)
+    for k, v in headers:
+        handler.send_header(k, v)
+    handler.send_header("Content-Length", str(len(data)))
+    handler.end_headers()
+    handler.wfile.write(data)
+
+
 class Handler(http.server.SimpleHTTPRequestHandler):
     def do_POST(self):
-        if BOX and self.path.startswith("/whip"):
+        if BOX and self.path.startswith(("/whip", "/whep")):
             return to_box(self, "POST")
+        if self.path == "/whep":
+            self.rfile.read(int(self.headers.get("Content-Length") or 0))
+            if not WATCHING:
+                return answer(self, 403, b"Watching is turned off on this TV", "text/plain")
+            return answer(self, 503, b"No TV behind this mock", "text/plain", [("Retry-After", "5")])
         self.send_error(404)
 
     def do_DELETE(self):
-        if BOX and self.path.startswith("/whip"):
+        if BOX and self.path.startswith(("/whip", "/whep")):
             return to_box(self, "DELETE")
         self.send_error(404)
 
@@ -58,16 +80,13 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         return os.path.join(REAL, path.lstrip("/") or "index.html")
 
     def do_GET(self):
-        if BOX and self.path.split("?", 1)[0] == "/config":
+        path = self.path.split("?", 1)[0]
+        if BOX and path in ("/config", "/watch/status"):
             return to_box(self, "GET")
-        if self.path.split("?", 1)[0] == "/config":
-            body = json.dumps(CONFIG).encode()
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Content-Length", str(len(body)))
-            self.end_headers()
-            self.wfile.write(body)
-            return
+        if path == "/config":
+            return answer(self, 200, json.dumps(CONFIG).encode(), "application/json")
+        if path == "/watch/status":
+            return answer(self, 200, json.dumps(STATUS).encode(), "application/json")
         super().do_GET()
 
 

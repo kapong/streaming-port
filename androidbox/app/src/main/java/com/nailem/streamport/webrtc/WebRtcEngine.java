@@ -10,7 +10,6 @@ import org.webrtc.EglBase;
 import org.webrtc.EncodedImage;
 import org.webrtc.HardwareVideoDecoderFactory;
 import org.webrtc.PeerConnectionFactory;
-import org.webrtc.SoftwareVideoEncoderFactory;
 import org.webrtc.VideoCodecInfo;
 import org.webrtc.VideoDecoder;
 import org.webrtc.VideoCodecStatus;
@@ -22,7 +21,8 @@ import java.util.concurrent.Executors;
 
 /**
  * The one WebRTC engine of the app, started the first time someone shares from a browser (it loads 6.5 MB of
- * native code, so nobody pays for it until then). Receive only: the TV never captures, encodes or sends media.
+ * native code, so nobody pays for it until then). It receives browser shares, and sends WHEP viewers the TV, but
+ * never encodes: viewers get the shared hardware encode passed through ({@link Fanout}).
  */
 final class WebRtcEngine {
 
@@ -52,8 +52,7 @@ final class WebRtcEngine {
                 .createAudioDeviceModule();
         factory = PeerConnectionFactory.builder()
                 .setVideoDecoderFactory(new BoxDecoderFactory(egl.getEglBaseContext()))
-                // Required by the factory; never used, since the TV sends nothing.
-                .setVideoEncoderFactory(new SoftwareVideoEncoderFactory())
+                .setVideoEncoderFactory(new Fanout.EncoderFactory())
                 .setAudioDeviceModule(adm)
                 .createPeerConnectionFactory();
         adm.release();

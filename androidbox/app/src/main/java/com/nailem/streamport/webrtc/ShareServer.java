@@ -45,6 +45,10 @@ import javax.net.ssl.SSLSocket;
  * </ul>
  * Like AirPlay, senders are accepted without asking (the default) within the same limits: LAN only,
  * {@link Limits#maxStreams} screens, {@link Hub#MAX_PER_HOST} per address, ten offers per address per minute.
+ * <p>
+ * It is also the watch page: the same page plays the TV over {@link Whep} ({@code POST /whep}) and shows
+ * {@code GET /watch/status} ({@code {viewers, max, enabled}}) for its "N watching". Anyone on the LAN can watch the TV,
+ * unless watching is turned off.
  */
 public final class ShareServer {
 
@@ -245,12 +249,19 @@ public final class ShareServer {
     }
 
     private void route(Request r, OutputStream out, InetAddress from) throws IOException {
+        if (Whep.route(context, r.method, r.path, r.header("Content-Type"), r.body, from,
+                (status, type, body, extra) -> send(out, status, type, body, extra))) {
+            return;
+        }
         switch (r.method + " " + r.path) {
             case "GET /":
                 asset(out, "share/index.html", "text/html; charset=utf-8");
                 return;
             case "GET /share.js":
                 asset(out, "share/share.js", "text/javascript; charset=utf-8");
+                return;
+            case "GET /watch.js":
+                asset(out, "share/watch.js", "text/javascript; charset=utf-8");
                 return;
             case "GET /share.css":
                 asset(out, "share/share.css", "text/css; charset=utf-8");
@@ -260,6 +271,9 @@ public final class ShareServer {
                 return;
             case "GET /config":
                 send(out, 200, "application/json", bytes(config().toString()), null);
+                return;
+            case "GET /watch/status":
+                send(out, 200, "application/json", bytes(watchStatus().toString()), null);
                 return;
             case "OPTIONS /whip":
                 send(out, 204, null, new byte[0], new String[]{"Accept-Post", "application/sdp"});
@@ -292,7 +306,19 @@ public final class ShareServer {
             o.put("fps", Limits.FPS);
             o.put("free", Math.max(0, Limits.maxStreams() - hub.count()));
             o.put("max", Limits.maxStreams());
-            o.put("rebroadcast", com.nailem.streamport.StreamService.rebroadcastOn(context));
+            o.put("watch", Fanout.watching());
+        } catch (JSONException ignored) {
+        }
+        return o;
+    }
+
+    /** The page's "N watching", polled while it shows the TV. */
+    private static JSONObject watchStatus() {
+        JSONObject o = new JSONObject();
+        try {
+            o.put("viewers", Fanout.viewers());
+            o.put("max", Fanout.maxViewers());
+            o.put("enabled", Fanout.watching());
         } catch (JSONException ignored) {
         }
         return o;
@@ -455,6 +481,7 @@ public final class ShareServer {
             case 201: return "Created";
             case 204: return "No Content";
             case 400: return "Bad Request";
+            case 403: return "Forbidden";
             case 404: return "Not Found";
             case 405: return "Method Not Allowed";
             case 415: return "Unsupported Media Type";

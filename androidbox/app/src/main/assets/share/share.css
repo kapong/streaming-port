@@ -12,10 +12,11 @@ body { margin: 0; min-height: 100vh; color: var(--text); font: 300 16px/1.5 Outf
     radial-gradient(50vmax 30vmax at 90% 105%, rgba(255,14,54,.09), transparent 70%), var(--bg);
   background-attachment: fixed; }
 main { max-width: 600px; margin: 0 auto; padding: 28px 16px 40px; }
+main.wide { max-width: 1100px; } /* while watching: a bigger TV */
 b, strong { font-weight: 600; }
 [hidden] { display: none !important; }
 
-.brand { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 15px; }
+.brand { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; color: var(--muted); font-size: 15px; }
 .mark { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; width: 22px; height: 16px; flex: none; }
 .mark i { border-radius: 2px; }
 .mark i:nth-child(1) { background: var(--green); } .mark i:nth-child(2) { background: var(--teal); }
@@ -25,7 +26,9 @@ b, strong { font-weight: 600; }
 .places::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--green);
   margin-right: 8px; vertical-align: 1px; }
 .places.full::before { background: var(--red); }
+.places + .places { margin-left: 0; } /* the gap spaces it; on a phone it wraps */
 h1 { margin: 26px 0 0; font-weight: 300; font-size: 20px; color: var(--soft); }
+h1 small { font-size: inherit; }
 h1 span { display: block; font-weight: 700; font-size: 44px; line-height: 1.05; color: var(--text); letter-spacing: -.5px;
   margin-top: 2px; overflow-wrap: anywhere; }
 .rule { width: 96px; height: 4px; border-radius: 2px; margin: 16px 0 0;
@@ -51,6 +54,9 @@ input[type=text]:focus { outline: 2px solid var(--teal); border-color: transpare
 .choice .s { display: block; color: var(--muted); font-size: 14px; line-height: 1.35; margin-top: 4px; }
 .choice.screen .ic { background: rgba(48,224,196,.16); }
 .choice.camera .ic { background: rgba(54,121,242,.18); }
+.pick { margin-top: 22px; }
+.choice.watch { width: 100%; flex-direction: row; align-items: center; gap: 14px; }
+.choice.watch .ic { background: rgba(48,224,148,.16); }
 .choice.screen { border-color: rgba(48,224,196,.45); background: rgba(48,224,196,.07); }
 
 .switch { display: flex; align-items: center; gap: 12px; margin-top: 16px; font-size: 15px; color: var(--soft); cursor: pointer; }
@@ -67,11 +73,12 @@ input[type=text]:focus { outline: 2px solid var(--teal); border-color: transpare
   background: rgba(255,14,54,.10); border: 1px solid rgba(255,14,54,.35); color: rgba(255,255,255,.88); }
 .notice .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--red); box-shadow: 0 0 10px var(--red);
   flex: none; margin-top: 6px; }
-.notice code { font: 600 14px Outfit, monospace; color: #fff; white-space: nowrap; }
 .tips { color: var(--muted); font-size: 14px; margin: 14px 2px 0; }
+.tips a { color: var(--teal); font-weight: 500; }
 
 /* While sharing */
 .stage { position: relative; border-radius: 18px; overflow: hidden; background: #000; aspect-ratio: 16 / 9; }
+.stage:fullscreen { border-radius: 0; aspect-ratio: auto; }
 .stage.portrait { aspect-ratio: 3 / 4; width: min(100%, calc(48vh * 3 / 4)); margin: 0 auto; }
 .stage video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
 .stage video.mirror { transform: scaleX(-1); }

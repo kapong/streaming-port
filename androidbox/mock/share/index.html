@@ -58,7 +58,6 @@
   .notice { display: flex; gap: 12px; margin-top: 16px; padding: 13px 15px; border-radius: 16px; font-size: 14px; line-height: 1.45;
     background: rgba(255,14,54,.10); border: 1px solid rgba(255,14,54,.35); color: rgba(255,255,255,.88); }
   .notice .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--red); box-shadow: 0 0 10px var(--red); flex: none; margin-top: 6px; }
-  .notice code { font: 600 14px Outfit, monospace; color: #fff; white-space: nowrap; }
 
   .tips { color: var(--muted); font-size: 14px; margin: 14px 2px 0; }
 
@@ -143,7 +142,7 @@
         </button>
       </div>
       <label class="switch"><input type="checkbox" id="mic"><span>Microphone with the camera<small>Off by default: a phone near the TV can echo.</small></span></label>
-      <div class="notice" id="notice"><span class="dot"></span><span><b>This TV is rebroadcast to the network.</b> Anyone here can watch it in VLC at <code>udp://@239.255.42.42:5004</code>. Don't share anything private.</span></div>
+      <div class="notice" id="notice"><span class="dot"></span><span><b>Anyone on this network can watch this TV,</b> including what you share. Don't share anything private.</span></div>
     </div>
     <p class="tips" id="android-tip" hidden>Android browsers can't share the screen; the camera works. To show your phone's screen, use Cast from the quick settings.</p>
     <div class="message" id="full" hidden>All 4 places on the TV are taken. Try again when someone stops.</div>

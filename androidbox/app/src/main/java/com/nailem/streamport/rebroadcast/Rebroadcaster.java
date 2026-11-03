@@ -9,36 +9,22 @@ import android.media.projection.MediaProjection;
 import android.util.Log;
 
 import java.io.IOException;
-import java.net.DatagramPacket;
-import java.net.Inet4Address;
-import java.net.InetAddress;
-import java.net.InetSocketAddress;
-import java.net.MulticastSocket;
-import java.net.NetworkInterface;
 import java.nio.ByteBuffer;
-import java.util.Collections;
 
 /**
- * Sends to everyone on the LAN through the box's hardware H.264 encoder (720p at 12 fps by default, see Config),
- * wrapped in MPEG-TS, to UDP multicast {@value #GROUP}:{@value #PORT}. Watch with VLC:
- * {@code udp://@239.255.42.42:5004}. TTL 1, so it never leaves the local network. Video only.
+ * The TV for WHEP viewers: one hardware H.264 encode (720p at 12 fps by default, see Config) handed to
+ * {@link com.nailem.streamport.webrtc.Fanout}, which sends it to every viewer. Video only.
  * <p>
- * Runs whenever the admin page has it switched on. While nobody shares it sends a still picture (the idle screen,
- * {@link #setStill}), so whatever else the TV shows never goes out; while someone shares it sends the TV itself,
+ * Runs while at least one viewer watches. While nobody shares it encodes a still picture (the idle screen,
+ * {@link #setStill}), so whatever else the TV shows never goes out; while someone shares it encodes the TV itself,
  * captured with MediaProjection ({@link #attach}, {@link #detach}).
  */
 public final class Rebroadcaster {
 
     private static final String TAG = "StreamPort";
 
-    public static final String GROUP = "239.255.42.42";
-    public static final int PORT = 5004;
-    public static final String URL = "udp://@" + GROUP + ":" + PORT;
-
     /** Screen content compresses well: 4 Mb/s at 1080p keeps text readable without crowding the Wi-Fi. */
     private static final int BITRATE_1080P = 4_000_000;
-    /** 7 TS packets per datagram: 1316 bytes, under any LAN's MTU. */
-    private static final int PACKETS_PER_DATAGRAM = 7;
 
     public interface Listener {
         /** {@code which} ended on its own (the system stopped the capture, or an error). */
@@ -81,20 +67,27 @@ public final class Rebroadcaster {
         }
     };
     private VirtualDisplay display;
-    private MulticastSocket socket;
-    private InetSocketAddress target;
     private Thread drain;
     private volatile boolean running;
+    /** Fanout's keyframe request: the next frame is an IDR. */
+    private final Runnable requestKeyframe = () -> {
+        MediaCodec enc = encoder;
+        if (enc == null) return;
+        android.os.Bundle b = new android.os.Bundle();
+        b.putInt(MediaCodec.PARAMETER_KEY_REQUEST_SYNC_FRAME, 0);
+        try {
+            enc.setParameters(b);
+        } catch (IllegalStateException ignored) {
+            // Encoder stopping.
+        }
+    };
 
-    private final byte[] datagram = new byte[TsMuxer.PACKET * PACKETS_PER_DATAGRAM];
-    private int filled;
     private byte[] csd;
-    private long firstPtsUs = -1;
     private int statFrames;
     private long statBytes;
     private long statSince = android.os.SystemClock.uptimeMillis();
 
-    /** {@code height} 720 or 1080 (16:9); {@code fps} what the network gets, which also bounds the capture cost. */
+    /** {@code height} 720 or 1080 (16:9); {@code fps} what viewers get, which also bounds the capture cost. */
     public Rebroadcaster(Listener listener, int height, int fps) {
         this.listener = listener;
         this.height = height;
@@ -110,20 +103,14 @@ public final class Rebroadcaster {
         } catch (UnsatisfiedLinkError e) {
             throw new IOException("libyuv not available: " + e);
         }
-        socket = new MulticastSocket();
-        socket.setTimeToLive(1);
-        socket.setLoopbackMode(true); // true = don't loop back to the box itself
-        NetworkInterface lan = lanInterface();
-        if (lan != null) socket.setNetworkInterface(lan);
-        target = new InetSocketAddress(InetAddress.getByName(GROUP), PORT);
-
         MediaFormat f = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, width, height);
         // YUV buffers we fill ourselves: the encoder's own RGB-to-YUV conversion (surface input) manages only about
         // 10 megapixels a second on this box, 5 fps at 1080p. libyuv does it in a few milliseconds per frame.
         f.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible);
-        f.setInteger(MediaFormat.KEY_BIT_RATE, (int) ((long) BITRATE_1080P * width * height / (1920 * 1080)));
+        f.setInteger(MediaFormat.KEY_BIT_RATE, bitrate(height));
         f.setInteger(MediaFormat.KEY_FRAME_RATE, fps);
-        f.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1); // a viewer joining sees a picture within a second
+        // Viewers joining ask for a keyframe at once (Fanout); this only bounds how long a lost one hurts.
+        f.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 2);
         encoder = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_VIDEO_AVC);
         encoder.configure(f, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
         encoder.start();
@@ -132,10 +119,15 @@ public final class Rebroadcaster {
         captureHandler = new android.os.Handler(captureThread.getLooper());
         captureHandler.postDelayed(repeat, REPEAT_MS);
         running = true;
+        com.nailem.streamport.webrtc.Fanout.encoderStarted(requestKeyframe);
         drain = new Thread(this::drainLoop, "rebroadcast");
         drain.start();
-        Log.i(TAG, "rebroadcast: live on " + URL + " (" + width + "x" + height + " at " + fps + " fps) via "
-                + (lan != null ? lan.getName() : "default route"));
+        Log.i(TAG, "rebroadcast: " + width + "x" + height + " at " + fps + " fps for WHEP viewers");
+    }
+
+    /** The encode's bitrate at {@code height} (16:9). */
+    public static int bitrate(int height) {
+        return (int) ((long) BITRATE_1080P * height * height / (1080 * 1080));
     }
 
     public int height() {
@@ -146,16 +138,8 @@ public final class Rebroadcaster {
         return fps;
     }
 
-    public boolean isRunning() {
-        return running;
-    }
-
-    /** True while the TV itself is sent (someone shares), false while the still picture is. */
-    public boolean isMirroring() {
-        return mirroring;
-    }
-
-    private volatile boolean mirroring;
+    /** True while the TV itself is encoded (someone shares), false while the still picture is. Capture thread. */
+    private boolean mirroring;
 
     /** The picture to send while nobody shares (any size; scaled to the stream's). Any thread; it is not kept. */
     public void setStill(android.graphics.Bitmap picture) {
@@ -245,6 +229,7 @@ public final class Rebroadcaster {
     public synchronized void stop() {
         if (!running && encoder == null) return;
         running = false;
+        com.nailem.streamport.webrtc.Fanout.encoderStopped(requestKeyframe);
         android.os.Handler h = captureHandler;
         if (h != null) {
             // The capture objects belong to the capture thread; let it let go of them before it ends.
@@ -280,7 +265,6 @@ public final class Rebroadcaster {
             captureThread = null;
         }
         captureHandler = null;
-        if (socket != null) socket.close();
         Log.i(TAG, "rebroadcast: stopped");
     }
 
@@ -430,7 +414,6 @@ public final class Rebroadcaster {
     }
 
     private void drainLoop() {
-        TsMuxer muxer = new TsMuxer(this::onPacket);
         MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
         try {
             while (running) {
@@ -452,10 +435,7 @@ public final class Rebroadcaster {
                             System.arraycopy(data, 0, withCsd, csd.length, data.length);
                             data = withCsd;
                         }
-                        if (firstPtsUs < 0) firstPtsUs = info.presentationTimeUs;
-                        long pts90k = 90_000 + (info.presentationTimeUs - firstPtsUs) * 9 / 100;
-                        muxer.writeFrame(data, 0, data.length, pts90k, key);
-                        flush(); // one frame, sent now: keeps latency at a frame or two
+                        com.nailem.streamport.webrtc.Fanout.publish(data, key, width, height);
                         statFrames++;
                         statBytes += data.length;
                         long now = android.os.SystemClock.uptimeMillis();
@@ -474,35 +454,5 @@ public final class Rebroadcaster {
         } catch (IllegalStateException e) {
             if (running) Log.w(TAG, "rebroadcast: encoder stopped: " + e);
         }
-    }
-
-    private void onPacket(byte[] packet) {
-        System.arraycopy(packet, 0, datagram, filled, TsMuxer.PACKET);
-        filled += TsMuxer.PACKET;
-        if (filled == datagram.length) flush();
-    }
-
-    private void flush() {
-        if (filled == 0) return;
-        try {
-            socket.send(new DatagramPacket(datagram, filled, target));
-        } catch (IOException e) {
-            // A dropped datagram is a glitch for viewers, not a reason to stop.
-        }
-        filled = 0;
-    }
-
-    /** The Wi-Fi (or Ethernet) interface with the box's LAN address, so multicast doesn't go out a wrong route. */
-    private static NetworkInterface lanInterface() {
-        try {
-            for (NetworkInterface ni : Collections.list(NetworkInterface.getNetworkInterfaces())) {
-                if (!ni.isUp() || ni.isLoopback() || !ni.supportsMulticast()) continue;
-                for (InetAddress a : Collections.list(ni.getInetAddresses())) {
-                    if (a instanceof Inet4Address && a.isSiteLocalAddress()) return ni;
-                }
-            }
-        } catch (IOException ignored) {
-        }
-        return null;
     }
 }

@@ -12,7 +12,7 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
-    <!-- Rebroadcast to the LAN (off by default): screen capture, granted once over adb (appops PROJECT_MEDIA). -->
+    <!-- The TV for WHEP viewers: screen capture, granted once over adb (appops PROJECT_MEDIA). -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <!-- Lets the receiver bring its screen up when a phone connects (granted once over adb: appops). -->
