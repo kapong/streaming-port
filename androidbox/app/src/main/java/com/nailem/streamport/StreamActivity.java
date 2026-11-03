@@ -145,7 +145,10 @@ public final class StreamActivity extends Activity implements Hub.Listener, Tile
         // The screen is gone (Home, another app): stop drawing and let the senders know, rather than decode
         // four streams nobody sees. They can reconnect at any time. Senders still waiting on the overlay stay.
         if (!isChangingConfigurations()) {
-            for (Screen s : new ArrayList<>(tiles.keySet())) s.close();
+            boolean overlay = StreamService.asksOnOverlay(this);
+            for (Screen s : hub.screens()) {
+                if (!(overlay && s.state() == Screen.State.PENDING)) s.close();
+            }
             clearTiles();
             finish();
         }

@@ -68,8 +68,11 @@ public final class StreamService extends Service implements Hub.Listener, AdminS
     /** The waiting sender the overlay asks about, and how many wait behind it. Main thread. */
     private Screen asking;
     private int askingMore;
+    /** The key pressed down on the card, so a release of a press that began before it showed is ignored. */
+    private int askKeyDown = KeyEvent.KEYCODE_UNKNOWN;
     private final Runnable askTimeout = () -> {
-        if (asking == null) return;
+        // Not one answered in the same main-loop turn the timeout came due.
+        if (asking == null || asking.isClosed() || asking.state() != Screen.State.PENDING) return;
         Log.i(TAG, asking.name() + ": not approved within " + ASK_TIMEOUT_MS / 1000 + " s; refused");
         Hub.get().refuse(asking);
     };
@@ -260,6 +263,7 @@ public final class StreamService extends Service implements Hub.Listener, AdminS
         }
         asking = next;
         askingMore = more;
+        askKeyDown = KeyEvent.KEYCODE_UNKNOWN;
         if (next == null) {
             askOverlay.hide();
             return;
@@ -272,10 +276,12 @@ public final class StreamService extends Service implements Hub.Listener, AdminS
         // ASK_TIMEOUT_MS); if that ever matters, an accessibility service's key filter could answer without focus.
         askOverlay.show(card, (v, keyCode, e) -> {
             boolean ok = keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER
-                    || keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER || keyCode == KeyEvent.KEYCODE_BUTTON_A;
+                    || keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER;
             if (!ok && keyCode != KeyEvent.KEYCODE_BACK) return false;
             // On key up: answering the press would close the card and leave its release to whatever is focused next.
-            if (e.getAction() == KeyEvent.ACTION_UP && !e.isCanceled()) {
+            if (e.getAction() == KeyEvent.ACTION_DOWN && e.getRepeatCount() == 0) askKeyDown = keyCode;
+            if (e.getAction() == KeyEvent.ACTION_UP && askKeyDown == keyCode && !e.isCanceled()) {
+                askKeyDown = KeyEvent.KEYCODE_UNKNOWN;
                 if (ok) Hub.get().approve(next);
                 else Hub.get().refuse(next);
             }

@@ -59,7 +59,6 @@ public final class Overlay {
         if (keys == null) {
             flags |= WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE;
         } else {
-            flags |= WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL;
             card.setFocusable(true);
             card.setFocusableInTouchMode(true);
             card.setOnKeyListener(keys);

@@ -93,5 +93,7 @@ public class HubTest {
         assertEquals(Arrays.asList(first, second), hub.pending());
         hub.approve(first);
         assertEquals(Collections.singletonList(second), hub.pending());
+        second.close();
+        assertTrue(hub.pending().isEmpty());
     }
 }

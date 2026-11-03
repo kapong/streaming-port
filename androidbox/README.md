@@ -18,7 +18,7 @@ USB debugging (and Network debugging, or plug in USB). From a computer with `adb
 curl -LO https://github.com/kapong/streaming-port/releases/latest/download/streaming-port.apk
 adb connect <box-ip>:5555                       # accept the prompt on the TV the first time
 adb install -r streaming-port.apk
-adb shell appops set com.nailem.streamport SYSTEM_ALERT_WINDOW allow            # comes to the front when someone shares
+adb shell appops set com.nailem.streamport SYSTEM_ALERT_WINDOW allow            # comes to the front when someone shares (with ask: asks on a card first)
 adb shell pm grant com.nailem.streamport android.permission.WRITE_SECURE_SETTINGS  # optional: same name for Cast
 adb shell appops set com.nailem.streamport PROJECT_MEDIA allow                  # optional: LAN rebroadcast
 adb shell am start -n com.nailem.streamport/.StreamActivity                     # first start; afterwards it starts at boot
@@ -174,8 +174,8 @@ Keys: `name` (what senders see), `ask` (`true` holds each new sender behind an "
 and remembers the approval until the receiver restarts; `always` holds every share and remembers nothing, so
 the same sender is asked again next time, even when it reconnects mid-share. The prompt is a small card in the
 top-right corner over whatever is playing, like the admin PIN; it asks about the oldest waiting sender first,
-refuses after 30 s, and the tiles come up only once a sender is approved. Without `SYSTEM_ALERT_WINDOW` the
-tiles come up at once with the prompt on the new sender's tile),
+refuses after 30 s, and the tiles come up only once a sender is approved. Without the `SYSTEM_ALERT_WINDOW`
+appop from the install steps the tiles come up at once with the prompt on the new sender's tile),
 `max_res` (`1080p`, `1440p`, `4k`), `max_streams` (1 to 8), `rebroadcast` (`true`/`false`), `rebroadcast_res`
 (`720p`, `1080p`), `rebroadcast_fps` (5 to 30). `name`, `ask`, `max_res`, `max_streams` and `rebroadcast` can
 also be changed on the admin page (for `ask`, "Ask before showing": Off = `false`, Ask once per sender = `true`,
