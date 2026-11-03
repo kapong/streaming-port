@@ -12,7 +12,7 @@ import com.nailem.streamport.Overlay;
 
 /**
  * Shows the admin PIN in the top-right corner of the TV over whatever is on screen (Home, an app, the tiles).
- * Not focusable and not touchable, so it never takes the remote away from what is underneath.
+ * Not focusable, so it never takes the remote away from what is underneath.
  */
 public final class PinOverlay {
 

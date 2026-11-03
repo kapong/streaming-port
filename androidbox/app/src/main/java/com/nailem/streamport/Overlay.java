@@ -50,12 +50,14 @@ public final class Overlay {
     }
 
     /**
-     * Shows card in place of what was shown. Without keys it is neither focusable nor touchable, so it never takes
-     * the remote away from what is underneath; with keys it takes the remote's focus while it is up.
+     * Shows card in place of what was shown. Without keys it is not focusable, so it never takes the remote away
+     * from what is underneath; with keys it takes the remote's focus while it is up.
      */
     public void show(View card, View.OnKeyListener keys) {
         hide();
-        int flags = WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE;
+        // Not FLAG_NOT_TOUCHABLE: Android 12+ caps such overlays at 0.8 alpha, so Home showed through the text.
+        // Not touch-modal instead: touches outside the small card still reach what is underneath.
+        int flags = WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL;
         if (keys == null) {
             flags |= WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE;
         } else {
