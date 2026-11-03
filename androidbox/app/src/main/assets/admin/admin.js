@@ -74,6 +74,14 @@ function render(s, force) {
     if (force || document.activeElement !== $('ask')) $('ask').value = s.ask;
     $('ask-hint').textContent = ASK_HINTS[s.ask] || '';
   }
+  if (s.watch !== undefined) {
+    if (force || document.activeElement !== $('watch')) $('watch').value = s.watch ? 'on' : 'off';
+    $('viewers').textContent = s.watch ? s.viewers + ' of ' + s.watchMax + ' watching' : '';
+    const url = 'http://' + location.hostname + ':' + s.watchPort + '/';
+    $('watch-hint').textContent = s.watch
+      ? 'Anyone on the Wi-Fi can watch the TV at ' + url + ' (video only, no PIN). The TV shows \u201CLive on the network\u201D while anyone watches.'
+      : 'Nobody can watch the TV. Sharing to the TV still works.';
+  }
   for (const b of document.querySelectorAll('.seg button')) b.classList.toggle('on', b.dataset.mode === s.layout);
   $('layout-hint').textContent = {
     dynamic: 'The primary screen is the biggest; the rest fit around it to use the most of the TV.',
@@ -211,6 +219,13 @@ $('ask').onchange = () => {
     once: 'Saved: each new sender waits for OK on the TV remote once. Screens already showing stay.',
     always: 'Saved: every new connection waits for OK on the TV remote. Screens already showing stay.',
   }[mode]));
+};
+
+$('watch').onchange = () => {
+  const on = $('watch').value === 'on';
+  act(() => api('watch', { on }), () => on
+    ? 'Watching is on: anyone on the Wi-Fi can watch the TV.'
+    : 'Watching is off: everyone watching was disconnected, and nobody new can watch.');
 };
 
 $('open-miracast').onclick = () => {

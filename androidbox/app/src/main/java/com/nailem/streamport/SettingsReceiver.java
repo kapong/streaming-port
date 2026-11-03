@@ -11,7 +11,8 @@ import android.util.Log;
  * share waits for OK and no approval is remembered), {@code max_res} (720p, 1080p, 1440p, 4k),
  * {@code max_streams} (1 to 8),
  * {@code rebroadcast_res} (720p, 1080p) and {@code rebroadcast_fps} (5 to 30) for the encode WHEP viewers watch,
- * {@code watch_max} (WHEP viewers, 1 to 30). The manifest guards it with
+ * {@code watch_max} (WHEP viewers, 1 to 30), {@code watch} (true/false: whether anyone may watch the TV; true by
+ * default). The manifest guards it with
  * DUMP, which only the shell and the system hold. A running receiver applies the change in place (senders stay
  * connected); one that isn't running starts with it. If Android won't let a background app start it now, the
  * setting is stored, the result says so, and the receiver picks it up at its next start.

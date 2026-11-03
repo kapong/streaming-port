@@ -41,6 +41,10 @@ async function loadConfig() {
   places.hidden = false;
   places.textContent = config.free > 0 ? config.free + ' of ' + config.max + ' places free' : 'TV full';
   places.classList.toggle('full', config.free <= 0);
+  // Watching on (the default): the warning holds, and the watch page (plain http, its own port) is a link away.
+  $('notice').hidden = config.watch === false;
+  $('watch-tip').hidden = !config.watch;
+  $('watch-link').href = 'http://' + location.hostname + ':' + config.watchPort + '/';
   $('footer').textContent = 'StreamPort on ' + config.name + ' \u00b7 ' + location.hostname;
   document.title = 'Share to ' + config.name;
 }

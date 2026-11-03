@@ -68,6 +68,7 @@ input[type=text]:focus { outline: 2px solid var(--teal); border-color: transpare
 .notice .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--red); box-shadow: 0 0 10px var(--red);
   flex: none; margin-top: 6px; }
 .tips { color: var(--muted); font-size: 14px; margin: 14px 2px 0; }
+.tips a { color: var(--teal); font-weight: 500; }
 
 /* While sharing */
 .stage { position: relative; border-radius: 18px; overflow: hidden; background: #000; aspect-ratio: 16 / 9; }

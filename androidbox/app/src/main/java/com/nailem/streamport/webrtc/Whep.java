@@ -17,12 +17,14 @@ import java.util.Locale;
  * <li>{@code DELETE} that URL stops watching. No trickle ICE ({@code PATCH} is 405).</li>
  * </ul>
  * Anyone on the LAN may watch (the listener checks LAN), within {@link Fanout}'s viewer cap and
- * {@link ViewerSlots#PER_HOST} per address; past either, {@code 503}.
+ * {@link ViewerSlots#PER_HOST} per address; past either, {@code 503}. While watching is turned off
+ * ({@link Fanout#setWatching}), {@code 403}.
  */
 public final class Whep {
 
     private static final String TAG = "StreamPort";
     private static final SecureRandom random = new SecureRandom();
+    private static final String OFF = "Watching is turned off on this TV";
 
     /** The listener's way to answer. */
     public interface Reply {
@@ -68,6 +70,10 @@ public final class Whep {
             out.send(415, "text/plain", bytes("Content-Type must be application/sdp"), null);
             return;
         }
+        if (!Fanout.watching()) {
+            out.send(403, "text/plain", bytes(OFF), null);
+            return;
+        }
         // First: it may fail to load, and no viewer place may be taken yet then.
         WebRtcEngine engine = WebRtcEngine.get(context);
         if (Fanout.isBroken()) {
@@ -101,6 +107,11 @@ public final class Whep {
         } finally {
             // Whatever went wrong (an Error included), never keep a PeerConnection or a viewer place.
             if (answer == null) v.close();
+        }
+        if (answer != null && !Fanout.watching()) { // turned off while answering, after closeAll looked
+            v.close();
+            out.send(403, "text/plain", bytes(OFF), null);
+            return;
         }
         if (answer == null) {
             out.send(400, "text/plain", bytes("Could not answer this offer (no H.264 video?)"), null);

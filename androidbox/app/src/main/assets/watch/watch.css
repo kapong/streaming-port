@@ -1,0 +1,6 @@
+/* The watch page: share.css's look, with a wider stage. */
+main.wide { max-width: 1100px; }
+.stage video { background: #000; }
+a.btn { display: block; text-align: center; text-decoration: none; }
+a.btn.link { border-color: rgba(48,224,196,.45); background: rgba(48,224,196,.08); color: var(--teal); }
+.stage:fullscreen { border-radius: 0; aspect-ratio: auto; }

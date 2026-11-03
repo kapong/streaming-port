@@ -26,7 +26,8 @@ adb shell am start -n com.nailem.streamport/.StreamActivity                     
 
 Then open the admin page at `https://<box-ip>:8089` (log in with the PIN the TV shows) to rename the receiver and set
 the limits. On a box like the Xiaomi TV Box S, **720p and 4 screens** keeps CPU and RAM under 80% (measurements
-below); 1080p suits 1 to 3 screens. Browsers share at `https://<box-ip>:9443` (the TV shows it as a QR code).
+below); 1080p suits 1 to 3 screens. Browsers share at `https://<box-ip>:9443` (the TV shows it as a QR code), and
+anyone on the Wi-Fi can watch the TV at `http://<box-ip>:9080` (turn it off with `watch` or on the admin page).
 Updates: install a newer release the same way (`adb install -r`); settings stay.
 
 The receiver's name starts as the box's own device name (Settings > Device Preferences > About > Device name), so
@@ -84,14 +85,28 @@ on `http://localhost:8767` and passes `/config` and `/whip` to the TV.
 
 ## Watching the TV (WHEP)
 
-Anyone on the Wi-Fi can watch the TV over WebRTC: `POST /whep` on the share port (9443) with a receive-only video
-offer (WHEP, no trickle ICE); `DELETE` the returned `Location` to stop. A watch page comes later. One hardware H.264
-encode is shared by every viewer, and it runs only while someone watches: the welcome screen (`IdleView`, drawn off
-screen) while nobody shares, the TV itself while someone does, so viewers never see whatever else the TV shows (Home,
+Anyone on the Wi-Fi can watch the TV in a browser at `http://BOX_IP:9080/` (the share page links to it). It is on by
+default and can be turned off (setting `watch`, or "Watching the TV" on the admin page): off ends every viewer's
+stream at once, `/whep` answers `403`, and the watch page says "Watching is turned off on this TV" and starts again by
+itself once it is turned back on.
+
+- **Plain http on purpose**, on its own port (`webrtc/WatchServer.java`, `WatchServer.PORT`): receiving WebRTC works
+  in an insecure context, so viewers get no certificate warning. Sharing (`getDisplayMedia`) needs https and stays on
+  9443; the watch page's "Share to TV" button goes there. The page and its `/whep` share one origin (no CORS).
+- **The page** (`assets/watch/`, the share page's look): one muted video, a WHEP client (POST the offer with every
+  candidate, apply the answer, `DELETE` the resource when the page closes), retries with backoff when the TV is
+  busy or the connection drops, and "N watching" from `GET /watch/status` (`{name, viewers, max, enabled,
+  sharePort}`) every 4 s. Design work: `python3 -I androidbox/mock/share_server.py` also serves it at
+  `http://127.0.0.1:8769/` (`--watch-off` shows the off state).
+- **Any WHEP client** works too: `POST /whep` on either port (9080 or 9443) with a receive-only video offer
+  (`application/sdp`, no trickle ICE); `DELETE` the returned `Location` to stop.
+
+One hardware H.264 encode is shared by every viewer, and it runs only while someone watches: the welcome screen
+(`IdleView`, drawn off screen) while nobody shares, the TV itself while someone does, so viewers never see whatever else the TV shows (Home,
 other apps). The tiles show a small "Live on the network" mark while anyone watches, and the share page warns senders
 that the TV can be watched.
 
-- At most `watch_max` viewers (default 20, 1 to 30) and a few per address; past that `503`. Video only.
+- At most `watch_max` viewers (default 20, 1 to 30) and 4 per address; past that `503`. Video only.
 - 1280x720 at 12 fps by default (`rebroadcast_res`, `rebroadcast_fps`; the names are from the multicast output this
   replaced; it is for presentations, where anything over 10 fps is fine); bitrate scales from 4 Mb/s at 1080p, and
   still screens cost almost nothing (the last frame is repeated every 100 ms). Changing either drops the viewers,
@@ -139,7 +154,8 @@ and the browser warns once about the self-signed certificate, as on the share pa
 TV", type the 6-digit code from the TV, and the browser stays logged in for 30 days. From there: rename the
 receiver, switch layout, pick the primary screen, choose whether new senders need OK on the remote (Ask before
 showing: off, once per sender, every time), set the max resolution and max screens, see each sender's
-address, resolution and network quality (Mb/s, fps, jitter), kick a sender, and switch the TV to Miracast. Every
+address, resolution and network quality (Mb/s, fps, jitter), kick a sender, turn watching the TV on or off (and see
+how many watch), and switch the TV to Miracast. Every
 save shows what changed and when it applies. Details in `SECURITY.md`. To work on the page without a TV,
 `python3 -I androidbox/mock/admin_server.py` serves it at `http://127.0.0.1:8768` with four made-up senders.
 
@@ -179,8 +195,9 @@ from the install steps: without it the prompt shows (on the new sender's tile) o
 front, since Android 14 won't let it come to the front by itself; otherwise a waiting sender is invisible, with no
 timeout, until it gives up),
 `max_res` (`1080p`, `1440p`, `4k`), `max_streams` (1 to 8), `rebroadcast_res`
-(`720p`, `1080p`) and `rebroadcast_fps` (5 to 30) for the encode WHEP viewers watch, `watch_max` (1 to 30).
-`name`, `ask`, `max_res` and `max_streams` can
+(`720p`, `1080p`) and `rebroadcast_fps` (5 to 30) for the encode WHEP viewers watch, `watch_max` (1 to 30),
+`watch` (`true`, the default: anyone on the Wi-Fi may watch the TV; `false` ends every viewer's stream and refuses new
+ones). `name`, `ask`, `watch`, `max_res` and `max_streams` can
 also be changed on the admin page (for `ask`, "Ask before showing": Off = `false`, Ask once per sender = `true`,
 Ask every time = `always`). A running receiver applies a change in place, as the admin page does, and senders
 already mirroring stay connected (turning `ask` off also lets in any sender still waiting for OK). If the receiver isn't running and Android won't start it
@@ -273,7 +290,8 @@ is 960x540 on the TV, so 720p senders lose nothing; 1080p only helps a single fu
 | `webrtc/SelfSignedCert.java`, `assets/share/` | The share page's certificate (hand-written DER), the page itself |
 | `StreamActivity.java`, `TileView.java`, `TileLayout.java` | Screen, tiles, dynamic and grid layouts |
 | `VideoDecoder.java`, `AudioPlayer.java` | Hardware H.264 decode per tile; AAC-ELD audio for the focused tile |
-| `rebroadcast/Rebroadcaster.java`, `webrtc/Fanout.java`, `webrtc/Whep.java` | Watching the TV: mirror capture, libyuv, one encoder, fanned out to WHEP viewers |
+| `rebroadcast/Rebroadcaster.java`, `webrtc/Fanout.java`, `webrtc/Whep.java` | Watching the TV: mirror capture, libyuv, one encoder, fanned out to WHEP viewers; the on/off switch |
+| `webrtc/WatchServer.java`, `assets/watch/` | The watch page over plain http (port 9080): the page, `/whep`, `/watch/status` |
 | `StreamService.java`, `Advertiser.java` | Background service, mDNS (`_airplay._tcp`, `_raop._tcp`) via JmDNS on the active network's IPv4 address |
 
 Security review: see `SECURITY.md`.

@@ -91,6 +91,9 @@ public final class AdminServer {
         /** Ask before showing a new sender (applies at once); {@code setting} is Config's: false, true or always. */
         void setAsk(String setting);
 
+        /** Lets anyone on the LAN watch the TV, or not (off ends every viewer's stream at once). */
+        void setWatch(boolean on);
+
         /** Disconnects AirPlay and opens the Miracast receiver; returns an error message or null. */
         String openMiracast();
 
@@ -415,6 +418,10 @@ public final class AdminServer {
                     json(out, 200, admin.state(), null);
                     return;
                 }
+                case "POST /api/watch":
+                    admin.setWatch(body.getBoolean("on"));
+                    json(out, 200, admin.state(), null);
+                    return;
                 case "POST /api/miracast": {
                     String err = admin.openMiracast();
                     json(out, err == null ? 200 : 400, err == null ? admin.state() : error(err), null);

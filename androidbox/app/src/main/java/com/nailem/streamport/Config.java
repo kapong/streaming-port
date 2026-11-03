@@ -91,6 +91,14 @@ final class Config {
         return prefs(c).getInt("watch_max", com.nailem.streamport.webrtc.Fanout.DEFAULT_MAX_VIEWERS);
     }
 
+    /**
+     * Whether anyone on the LAN may watch the TV (the watch page, WHEP). On by default, like sharing: the share page
+     * and the TV say so. Off ends every viewer's stream.
+     */
+    static boolean watch(Context c) {
+        return prefs(c).getBoolean("watch", true);
+    }
+
     /** Pushes the stored resolution and stream limits into {@link Limits}. */
     static void applyLimits(Context c) {
         SharedPreferences p = prefs(c);
@@ -183,6 +191,18 @@ final class Config {
                 e.putInt("watch_max", max);
                 break;
             }
+            case "watch":
+                switch (value.trim().toLowerCase(Locale.ROOT)) {
+                    case "true":
+                        e.putBoolean("watch", true);
+                        break;
+                    case "false":
+                        e.putBoolean("watch", false);
+                        break;
+                    default:
+                        throw new IllegalArgumentException("watch: true or false");
+                }
+                break;
             case "max_res":
                 e.putString("max_res", Limits.Resolution.parse(value).key);
                 break;

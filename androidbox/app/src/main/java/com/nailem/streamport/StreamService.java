@@ -53,6 +53,7 @@ public final class StreamService extends Service implements Hub.Listener, AdminS
     private android.app.Notification notification;
     private AdminServer adminServer;
     private volatile com.nailem.streamport.webrtc.ShareServer shareServer;
+    private com.nailem.streamport.webrtc.WatchServer watchServer;
     private android.net.ConnectivityManager.NetworkCallback networkCallback;
     /** The receiver's name, for the share page (read on its threads). */
     private static volatile String receiverName = "";
@@ -119,6 +120,7 @@ public final class StreamService extends Service implements Hub.Listener, AdminS
         Hub.get().setAskBeforeShowing(Config.ask(this), Config.askAlways(this));
         Config.applyLimits(this);
         com.nailem.streamport.webrtc.Fanout.setMaxViewers(Config.watchMax(this));
+        com.nailem.streamport.webrtc.Fanout.setWatching(Config.watch(this));
         com.nailem.streamport.webrtc.Fanout.setEncodeBitrate(
                 com.nailem.streamport.rebroadcast.Rebroadcaster.bitrate(Config.rebroadcastHeight(this)));
         String name = Config.name(this);
@@ -199,9 +201,13 @@ public final class StreamService extends Service implements Hub.Listener, AdminS
         }
         // WHEP viewers keep the shared encoder on; it stops with the last one.
         com.nailem.streamport.webrtc.Fanout.setMaxViewers(Config.watchMax(this));
+        com.nailem.streamport.webrtc.Fanout.setWatching(Config.watch(this));
         com.nailem.streamport.webrtc.Fanout.setEncodeBitrate(
                 com.nailem.streamport.rebroadcast.Rebroadcaster.bitrate(Config.rebroadcastHeight(this)));
         com.nailem.streamport.webrtc.Fanout.setViewerListener(viewers -> {
+            // Here, not only where the encoder starts or stops: the TV's "Live on the network" mark (and its viewer
+            // count) must follow every join and leave.
+            Hub.get().refresh();
             if (running != this) return;
             if (viewers > 0) startRebroadcast();
             else stopRebroadcast();
@@ -211,6 +217,12 @@ public final class StreamService extends Service implements Hub.Listener, AdminS
             shareServer.start();
         } catch (IOException e) {
             Log.e(TAG, "share page did not start", e);
+        }
+        watchServer = new com.nailem.streamport.webrtc.WatchServer(this);
+        try {
+            watchServer.start();
+        } catch (IOException e) {
+            Log.e(TAG, "watch page did not start", e);
         }
         // A new address (joining Wi-Fi after boot, a new DHCP lease) needs a certificate that names it, and new
         // mDNS records on it.
@@ -434,6 +446,7 @@ public final class StreamService extends Service implements Hub.Listener, AdminS
             getSystemService(android.net.ConnectivityManager.class).unregisterNetworkCallback(networkCallback);
         }
         if (shareServer != null) shareServer.stop();
+        if (watchServer != null) watchServer.stop();
         if (pinOverlay != null) pinOverlay.hide();
         main.removeCallbacks(askTimeout);
         if (askOverlay != null) askOverlay.hide();
@@ -471,6 +484,10 @@ public final class StreamService extends Service implements Hub.Listener, AdminS
         for (Limits.Resolution r : Limits.Resolution.values()) caps.put(r.key, Limits.maxStreamsFor(r));
         o.put("maxStreamsFor", caps);
         o.put("ask", Config.askAlways(this) ? "always" : Config.ask(this) ? "once" : "off");
+        o.put("watch", Config.watch(this));
+        o.put("viewers", com.nailem.streamport.webrtc.Fanout.viewers());
+        o.put("watchMax", Config.watchMax(this));
+        o.put("watchPort", com.nailem.streamport.webrtc.WatchServer.PORT);
         JSONArray list = new JSONArray();
         for (Screen s : hub.screens()) {
             NetStats.Snapshot st = s.stats();
@@ -552,6 +569,13 @@ public final class StreamService extends Service implements Hub.Listener, AdminS
         // its listeners when it does); otherwise the new mode applies to whoever connects next.
         new android.os.Handler(getMainLooper()).post(() ->
                 Hub.get().setAskBeforeShowing(Config.ask(this), Config.askAlways(this)));
+    }
+
+    @Override
+    public void setWatch(boolean on) {
+        Config.set(this, "watch", Boolean.toString(on));
+        com.nailem.streamport.webrtc.Fanout.setWatching(on); // off: every viewer's stream ends now
+        Log.i(TAG, "admin turned watching " + (on ? "on" : "off"));
     }
 
     @Override

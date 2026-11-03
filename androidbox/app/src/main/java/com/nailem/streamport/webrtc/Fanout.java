@@ -64,6 +64,8 @@ public final class Fanout {
     /** Answered viewers by their WHEP resource token. */
     private static final Map<String, WhepViewer> viewers = new ConcurrentHashMap<>();
     private static final ViewerSlots slots = new ViewerSlots(DEFAULT_MAX_VIEWERS);
+    /** The owner's on/off switch for watching (setting {@code watch}, on by default). */
+    private static volatile boolean watching = true;
     /** Set once libwebrtc stopped passing our buffers through; watching stays off until the app restarts. */
     private static final AtomicBoolean broken = new AtomicBoolean();
     private static final AtomicLong seq = new AtomicLong();
@@ -98,6 +100,16 @@ public final class Fanout {
 
     static int encodeBitrate() {
         return encodeBitrate;
+    }
+
+    /** Turns watching on or off; off ends every viewer's stream and refuses new ones. Any thread. */
+    public static void setWatching(boolean on) {
+        watching = on; // first: an offer answered while closeAll runs checks it again (Whep)
+        if (!on) closeAll("watching turned off");
+    }
+
+    public static boolean watching() {
+        return watching;
     }
 
     /** How many are watching the TV now. */
