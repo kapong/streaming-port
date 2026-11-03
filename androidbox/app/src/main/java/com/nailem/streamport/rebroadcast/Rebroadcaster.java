@@ -392,6 +392,9 @@ public final class Rebroadcaster {
             out.put(lastUV);
             if (n < width) {
                 ByteBuffer v = vPlane.getBuffer();
+                // lastUV's limit is y * width + n here, so the absolute get must lift it first
+                // (threw IndexOutOfBounds on the box's Android 14 encoder, killing the app).
+                lastUV.limit(lastUV.capacity());
                 v.put(v.limit() - 1, lastUV.get(y * width + width - 1));
             }
         }
