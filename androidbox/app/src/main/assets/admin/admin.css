@@ -59,4 +59,5 @@ code { background: var(--bg); border: 1px solid var(--line); border-radius: 6px;
 @media (min-width: 900px) {
   main { max-width: 1200px; }
   .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+  .col { min-width: 0; }
 }
