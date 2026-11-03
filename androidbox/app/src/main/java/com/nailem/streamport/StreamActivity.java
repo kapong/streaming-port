@@ -99,15 +99,20 @@ public final class StreamActivity extends Activity implements Hub.Listener, Tile
         liveMark.setBackgroundResource(R.drawable.tile_label_bg);
         liveMark.setPadding(20, 6, 20, 6);
         liveMark.setVisibility(View.GONE);
-        FrameLayout.LayoutParams lmp = new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.END);
-        lmp.setMargins(0, 24, 24, 0);
-        root.addView(liveMark, lmp);
+        // Bottom right, clear of the system's screen-cast chip (top right while a capture runs), the tiles'
+        // name pills (bottom left) and the hint (bottom centre). Margins are set with the idle scale below so
+        // it also sits just above the idle footer, under the QR card.
+        root.addView(liveMark, new FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM | Gravity.END));
         setContentView(root);
         root.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> {
             if (r - l != or - ol || b - t != ob - ot) {
                 float scale = Math.min((r - l) / (float) IdleView.W, (b - t) / (float) IdleView.H);
                 idle.setScaleX(scale);
                 idle.setScaleY(scale);
+                // Right edge in line with the idle footer; bottom just above it (footer top is 76 px up).
+                FrameLayout.LayoutParams lmp = (FrameLayout.LayoutParams) liveMark.getLayoutParams();
+                lmp.setMargins(0, 0, Math.round(IdleView.SIDE * scale), Math.round(96 * scale));
+                liveMark.setLayoutParams(lmp);
                 relayout();
             }
         });

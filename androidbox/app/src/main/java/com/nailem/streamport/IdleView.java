@@ -35,7 +35,7 @@ final class IdleView extends FrameLayout {
 
     static final int W = 1920;
     static final int H = 1080;
-    private static final int SIDE = 120;
+    static final int SIDE = 120;
     private static final int TEAL = 0xFF30E0C4;
     private static final int[] BRAND = {0xFF30E094, 0xFF30E0C4, 0xFF3679F2, 0xFFFF0E36};
 
