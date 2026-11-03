@@ -142,7 +142,7 @@ public final class Rebroadcaster {
         // YUV buffers we fill ourselves: the encoder's own RGB-to-YUV conversion (surface input) manages only about
         // 10 megapixels a second on this box, 5 fps at 1080p. libyuv does it in a few milliseconds per frame.
         f.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible);
-        f.setInteger(MediaFormat.KEY_BIT_RATE, (int) ((long) BITRATE_1080P * width * height / (1920 * 1080)));
+        f.setInteger(MediaFormat.KEY_BIT_RATE, bitrate(height));
         f.setInteger(MediaFormat.KEY_FRAME_RATE, fps);
         // WHEP viewers joining ask for a keyframe at once; multicast (VLC) joiners wait up to this long.
         f.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 2);
@@ -159,6 +159,11 @@ public final class Rebroadcaster {
         drain.start();
         Log.i(TAG, "rebroadcast: " + width + "x" + height + " at " + fps + " fps, " + (multicast ? "live on " + URL
                 + " via " + (lan != null ? lan.getName() : "default route") : "WHEP viewers only"));
+    }
+
+    /** The encode's bitrate at {@code height} (16:9). */
+    public static int bitrate(int height) {
+        return (int) ((long) BITRATE_1080P * height * height / (1080 * 1080));
     }
 
     public int height() {

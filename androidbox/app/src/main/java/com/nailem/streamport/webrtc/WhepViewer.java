@@ -38,10 +38,11 @@ final class WhepViewer {
      */
     private static final List<PeerConnection.IceServer> ICE_SERVERS = Collections.emptyList();
     /**
-     * The shared encoder's rate is fixed (~2-2.5 Mb/s at 720p12). If libwebrtc's target for a peer is below it, its
-     * frame dropper throws away input frames before PassEncoder sees them, which breaks the H.264 reference chain
-     * (gap, then wait for an IDR): measured ~0.6 fps from a 300 kb/s start. So the target is floored above the
-     * shared rate; congestion then shows as delay or loss, not a lower rate, which is why viewers are capped.
+     * The shared encoder's rate is fixed ({@link Fanout#encodeBitrate}, peaks above it). If libwebrtc's target for a
+     * peer is below it, its frame dropper throws away input frames before PassEncoder sees them, which breaks the
+     * H.264 reference chain (gap, then wait for an IDR): measured ~0.6 fps from a 300 kb/s start. So the target is
+     * floored well above the shared rate (2x, start 3x, cap 5x; at least the 4/6/10 Mb/s measured fine at 720p);
+     * congestion then shows as delay or loss, not a lower rate, which is why viewers are capped.
      */
     private static final int MIN_BPS = 4_000_000;
     private static final int START_BPS = 6_000_000;
@@ -61,6 +62,7 @@ final class WhepViewer {
     private boolean closed;
     private final CountDownLatch gathered = new CountDownLatch(1);
     private final Runnable giveUp;
+    private volatile PeerConnection.PeerConnectionState state;
 
     /** {@code from} has just been given a place ({@link Fanout#admit}); {@link #close} gives it back. */
     WhepViewer(WebRtcEngine engine, String token, InetAddress from) {
@@ -68,6 +70,7 @@ final class WhepViewer {
         this.token = token;
         this.from = from;
         giveUp = () -> {
+            if (state == PeerConnection.PeerConnectionState.CONNECTED) return;
             Log.i(TAG, "whep " + token.substring(0, 6) + ": no connection, giving up");
             engine.worker.execute(this::close);
         };
@@ -82,12 +85,14 @@ final class WhepViewer {
         config.tcpCandidatePolicy = PeerConnection.TcpCandidatePolicy.DISABLED;
         config.continualGatheringPolicy = PeerConnection.ContinualGatheringPolicy.GATHER_ONCE;
         config.keyType = PeerConnection.KeyType.ECDSA;
-        main.postDelayed(giveUp, CONNECT_MS); // before anything can connect, so CONNECTED always cancels it
         pc = engine.factory.createPeerConnection(config, observer);
         if (pc == null) return null;
         Step remote = new Step();
         pc.setRemoteDescription(remote, new SessionDescription(SessionDescription.Type.OFFER, offerSdp));
         if (!remote.await()) return null;
+        int enc = Fanout.encodeBitrate();
+        int minBps = Math.max(MIN_BPS, 2 * enc);
+        int maxBps = Math.max(MAX_BPS, 5 * enc);
         boolean video = false;
         for (RtpTransceiver t : pc.getTransceivers()) {
             if (t.getMediaType() != MediaStreamTrack.MediaType.MEDIA_TYPE_VIDEO || video) {
@@ -103,13 +108,13 @@ final class WhepViewer {
             RtpParameters params = sender.getParameters();
             params.degradationPreference = RtpParameters.DegradationPreference.MAINTAIN_RESOLUTION;
             for (RtpParameters.Encoding e : params.encodings) {
-                e.minBitrateBps = MIN_BPS;
-                e.maxBitrateBps = MAX_BPS;
+                e.minBitrateBps = minBps;
+                e.maxBitrateBps = maxBps;
             }
             sender.setParameters(params);
         }
         if (!video) return null;
-        pc.setBitrate(MIN_BPS, START_BPS, MAX_BPS); // start the estimate at a LAN rate, not 300 kb/s
+        pc.setBitrate(minBps, Math.max(START_BPS, 3 * enc), maxBps); // start the estimate at a LAN rate, not 300 kb/s
         Step create = new Step();
         pc.createAnswer(create, new MediaConstraints());
         if (!create.await()) return null;
@@ -124,6 +129,9 @@ final class WhepViewer {
             added = true;
         }
         Fanout.added(this);
+        // Only now: answering itself can take longer than this (the waits above), and the viewer can't connect
+        // before it has the answer. A connection that came first anyway is checked by giveUp.
+        main.postDelayed(giveUp, CONNECT_MS);
         return answer.description;
     }
 
@@ -195,6 +203,7 @@ final class WhepViewer {
         @Override
         public void onConnectionChange(PeerConnection.PeerConnectionState s) {
             Log.i(TAG, "whep " + token.substring(0, 6) + ": " + s);
+            state = s;
             switch (s) {
                 case CONNECTED:
                     main.removeCallbacks(giveUp);

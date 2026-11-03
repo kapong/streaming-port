@@ -119,6 +119,8 @@ public final class StreamService extends Service implements Hub.Listener, AdminS
         Hub.get().setAskBeforeShowing(Config.ask(this), Config.askAlways(this));
         Config.applyLimits(this);
         com.nailem.streamport.webrtc.Fanout.setMaxViewers(Config.watchMax(this));
+        com.nailem.streamport.webrtc.Fanout.setEncodeBitrate(
+                com.nailem.streamport.rebroadcast.Rebroadcaster.bitrate(Config.rebroadcastHeight(this)));
         String name = Config.name(this);
         if (!name.equals(server.name())) applyName(name);
         boolean on = wantsRebroadcast();
@@ -195,6 +197,8 @@ public final class StreamService extends Service implements Hub.Listener, AdminS
         }
         // WHEP viewers keep the shared encoder on; it stops with the last one unless multicast is on.
         com.nailem.streamport.webrtc.Fanout.setMaxViewers(Config.watchMax(this));
+        com.nailem.streamport.webrtc.Fanout.setEncodeBitrate(
+                com.nailem.streamport.rebroadcast.Rebroadcaster.bitrate(Config.rebroadcastHeight(this)));
         com.nailem.streamport.webrtc.Fanout.setViewerListener(viewers -> {
             if (running != this) return;
             if (viewers > 0) startRebroadcast();
@@ -363,6 +367,7 @@ public final class StreamService extends Service implements Hub.Listener, AdminS
         } catch (Exception e) {
             Log.w(TAG, "rebroadcast did not start: " + e);
             r.stop();
+            com.nailem.streamport.webrtc.Fanout.closeAll("the shared encode did not start");
             return;
         }
         rebroadcaster = r;
@@ -435,6 +440,9 @@ public final class StreamService extends Service implements Hub.Listener, AdminS
     @Override
     public void onDestroy() {
         running = null;
+        // The WebRTC engine outlives the service: its viewers must not.
+        com.nailem.streamport.webrtc.Fanout.setViewerListener(null);
+        com.nailem.streamport.webrtc.Fanout.closeAll("receiver stopped");
         stopRebroadcast();
         Hub.get().removeListener(this);
         if (adminServer != null) adminServer.stop();

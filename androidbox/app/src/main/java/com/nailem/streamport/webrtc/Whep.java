@@ -68,6 +68,8 @@ public final class Whep {
             out.send(415, "text/plain", bytes("Content-Type must be application/sdp"), null);
             return;
         }
+        // First: it may fail to load, and no viewer place may be taken yet then.
+        WebRtcEngine engine = WebRtcEngine.get(context);
         if (Fanout.isBroken()) {
             out.send(503, "text/plain", bytes("Watching is not available (see the receiver's log)"), null);
             return;
@@ -88,7 +90,7 @@ public final class Whep {
         random.nextBytes(raw);
         StringBuilder token = new StringBuilder();
         for (byte b : raw) token.append(String.format(Locale.ROOT, "%02x", b));
-        WhepViewer v = new WhepViewer(WebRtcEngine.get(context), token.toString(), from);
+        WhepViewer v = new WhepViewer(engine, token.toString(), from);
         String answer = null;
         try {
             answer = v.answer(new String(body, StandardCharsets.UTF_8));

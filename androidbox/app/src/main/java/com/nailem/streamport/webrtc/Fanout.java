@@ -26,6 +26,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiConsumer;
+import java.util.function.LongSupplier;
 
 /**
  * The TV's one H.264 encode (the Rebroadcaster's hardware MediaCodec) fanned out to every WHEP viewer's
@@ -66,6 +68,10 @@ public final class Fanout {
     private static final AtomicBoolean broken = new AtomicBoolean();
     private static final AtomicLong seq = new AtomicLong();
     private static final Handler main = new Handler(Looper.getMainLooper());
+    /** Keyframe-request timing; tests replace both. */
+    static LongSupplier clock = SystemClock::uptimeMillis;
+    static BiConsumer<Runnable, Long> later = (r, ms) -> main.postDelayed(r, ms);
+    private static volatile int encodeBitrate = 1_800_000;
     private static long lastKeyRequest;
     private static boolean keyPending;
 
@@ -83,6 +89,15 @@ public final class Fanout {
 
     public static void setMaxViewers(int max) {
         slots.setMax(max);
+    }
+
+    /** The shared encode's configured bitrate, which each viewer's send rate is floored from. */
+    public static void setEncodeBitrate(int bps) {
+        encodeBitrate = bps;
+    }
+
+    static int encodeBitrate() {
+        return encodeBitrate;
     }
 
     /** How many are watching the TV now. */
@@ -184,15 +199,14 @@ public final class Fanout {
         synchronized (Fanout.class) {
             if (keyPending) return;
             keyPending = true;
-            main.postDelayed(Fanout::sendKeyRequest,
-                    Math.max(0, lastKeyRequest + KEYFRAME_MIN_MS - SystemClock.uptimeMillis()));
+            later.accept(Fanout::sendKeyRequest, Math.max(0, lastKeyRequest + KEYFRAME_MIN_MS - clock.getAsLong()));
         }
     }
 
     private static void sendKeyRequest() {
         synchronized (Fanout.class) {
             keyPending = false;
-            lastKeyRequest = SystemClock.uptimeMillis();
+            lastKeyRequest = clock.getAsLong();
         }
         Runnable r = keyframeRequester.get();
         if (r != null) r.run();
