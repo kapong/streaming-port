@@ -6,9 +6,8 @@ reads from the network can come from any of them. This file covers what was revi
 ## Threat model
 
 - **Who can reach it**: any host on the TV's LAN, on TCP 7000 (AirPlay control), the per-sender video ports, the
-  UDP audio ports, TCP 8089 (admin page), TCP 9443 (share page, WHIP and WHEP) and TCP 9080 (watch page, plain
-  http). Every port refuses addresses that aren't local (private, link-local,
-  loopback, ULA, CGNAT), so a port forward from the internet gets nothing.
+  UDP audio ports, TCP 8089 (admin page) and TCP 9443 (share and watch page, WHIP and WHEP). Every port refuses
+  addresses that aren't local (private, link-local, loopback, ULA, CGNAT), so a port forward from the internet gets nothing.
 - **Accepted by design (the default)**: senders are let in without asking, so anyone on the Wi-Fi can put their
   screen on the TV (up to the stream limit). `ask=true` brings back on-screen approval; `ask=always` asks for
   every new connection (a sender reconnecting mid-share included) and remembers no approval. It is set over adb or
@@ -161,23 +160,19 @@ the page and learn a share's secret URL. Same for the admin page, which uses the
 
 ## 8. Watching the TV (WHEP)
 
-On by default: the watch page `http://<box>:9080/` and `POST /whep` there or on the share port (9443; LAN only, like
-every port) let **anyone on the Wi-Fi watch the TV**, including screens shared by people who don't know. The owner
+On by default: "Watch TV" on the share page `https://<box>:9443/` and `POST /whep` there (LAN only, like every port)
+let **anyone on the Wi-Fi watch the TV**, including screens shared by people who don't know. The owner
 can turn it off (`watch=false` over adb, or the admin page, which needs a PIN session): every viewer's stream ends at
-once, `/whep` answers `403`, the share page drops its "anyone can watch" warning, and an offer answered while the
+once, `/whep` answers `403`, the share page drops "Watch TV" and its "anyone can watch" warning, and an offer answered while the
 switch flips is checked again and closed.
 
-The watch page is plain http on purpose: receiving WebRTC needs no secure context, so viewers are not taught to
-click through a certificate warning. What that costs: someone who can intercept the Wi-Fi (ARP spoofing) can read or
-change the page and its requests, and so learn a viewer's WHEP resource URL (enough to stop that viewer) or serve a
-different page; the video itself is still DTLS-SRTP, but its fingerprint travels in that plain SDP, so such an
-attacker could also sit in the middle of the media. They could watch anyway by just connecting, so nothing is
-exposed that isn't already open to the whole Wi-Fi. The port takes the same limits as the share page (LAN only, 16
-connections, 4 per address, 10 s per request, 64 KB bodies), the same Host check (IP literals of the box's own
-addresses or `.local` names, against DNS rebinding), the same security headers (CSP `default-src 'self'`, no
-framing), and a Permissions-Policy that allows no capture. Another web page can't POST an SDP offer to it (the
-`application/sdp` preflight gets no CORS headers) nor read `/watch/status`, which holds only the receiver's name,
-the viewer count and the switch.
+Watching and sharing are one https page on purpose (one QR code, one address), so viewers see the self-signed
+certificate's warning on their first visit too and are taught to click through it, as senders already are (section
+7). The page, `/whep` and `/watch/status` take the share port's limits (LAN only, 16 connections, 4 per address, 10 s
+per request, 64 KB bodies), its Host check (IP literals of the box's own addresses or `.local` names, against DNS
+rebinding) and its security headers (CSP `default-src 'self'`, no framing). Another web page can't POST an SDP offer
+to it (the `application/sdp` preflight gets no CORS headers) nor read `/watch/status`, which holds only the viewer
+count, the cap and the switch. The page connects nothing until "Watch TV" is tapped.
 
 While nobody shares only the welcome screen is sent, drawn off screen, so nothing else the TV shows (Home, other apps) goes out, and the screen capture is held only while
 someone shares and someone watches. The encoder runs only while at least one viewer is connected. Mitigations: the

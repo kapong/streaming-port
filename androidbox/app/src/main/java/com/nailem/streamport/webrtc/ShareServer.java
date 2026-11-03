@@ -46,21 +46,22 @@ import javax.net.ssl.SSLSocket;
  * Like AirPlay, senders are accepted without asking (the default) within the same limits: LAN only,
  * {@link Limits#maxStreams} screens, {@link Hub#MAX_PER_HOST} per address, ten offers per address per minute.
  * <p>
- * It also serves {@link Whep} (as does {@link WatchServer}, the plain-http watch page): anyone on the LAN can watch
- * the TV, unless watching is turned off.
+ * It is also the watch page: the same page plays the TV over {@link Whep} ({@code POST /whep}) and shows
+ * {@code GET /watch/status} ({@code {viewers, max, enabled}}) for its "N watching". Anyone on the LAN can watch the TV,
+ * unless watching is turned off.
  */
 public final class ShareServer {
 
     private static final String TAG = "StreamPort";
 
     public static final int PORT = 9443;
-    static final int MAX_CONNECTIONS = 16;
-    static final int MAX_CONNECTIONS_PER_HOST = 4;
+    private static final int MAX_CONNECTIONS = 16;
+    private static final int MAX_CONNECTIONS_PER_HOST = 4;
     private static final int MAX_LINE = 4096;
     private static final int MAX_HEADERS = 40;
     /** A browser offer with audio and video is 4 to 10 KB. */
     private static final int MAX_BODY = 64 * 1024;
-    static final long REQUEST_MS = 10_000;
+    private static final long REQUEST_MS = 10_000;
     private static final int OFFERS_PER_MINUTE = 10;
 
     private final Context context;
@@ -167,9 +168,9 @@ public final class ShareServer {
         }
     }
 
-    // ---- HTTP (WatchServer's too) ----
+    // ---- HTTP ----
 
-    static final class Request {
+    private static final class Request {
         String method;
         String target;
         String path;
@@ -194,7 +195,7 @@ public final class ShareServer {
         route(r, out, from);
     }
 
-    static Request read(InputStream in, long deadline) throws IOException {
+    private Request read(InputStream in, long deadline) throws IOException {
         String line = readLine(in, deadline);
         if (line == null) return null;
         String[] parts = line.split(" ");
@@ -259,6 +260,9 @@ public final class ShareServer {
             case "GET /share.js":
                 asset(out, "share/share.js", "text/javascript; charset=utf-8");
                 return;
+            case "GET /watch.js":
+                asset(out, "share/watch.js", "text/javascript; charset=utf-8");
+                return;
             case "GET /share.css":
                 asset(out, "share/share.css", "text/css; charset=utf-8");
                 return;
@@ -267,6 +271,9 @@ public final class ShareServer {
                 return;
             case "GET /config":
                 send(out, 200, "application/json", bytes(config().toString()), null);
+                return;
+            case "GET /watch/status":
+                send(out, 200, "application/json", bytes(watchStatus().toString()), null);
                 return;
             case "OPTIONS /whip":
                 send(out, 204, null, new byte[0], new String[]{"Accept-Post", "application/sdp"});
@@ -300,7 +307,18 @@ public final class ShareServer {
             o.put("free", Math.max(0, Limits.maxStreams() - hub.count()));
             o.put("max", Limits.maxStreams());
             o.put("watch", Fanout.watching());
-            o.put("watchPort", WatchServer.PORT);
+        } catch (JSONException ignored) {
+        }
+        return o;
+    }
+
+    /** The page's "N watching", polled while it shows the TV. */
+    private static JSONObject watchStatus() {
+        JSONObject o = new JSONObject();
+        try {
+            o.put("viewers", Fanout.viewers());
+            o.put("max", Fanout.maxViewers());
+            o.put("enabled", Fanout.watching());
         } catch (JSONException ignored) {
         }
         return o;
@@ -421,31 +439,20 @@ public final class ShareServer {
     // ---- responses ----
 
     private void asset(OutputStream out, String name, String type) throws IOException {
-        send(out, 200, type, load(context, name), null);
-    }
-
-    static byte[] load(Context context, String asset) throws IOException {
-        try (InputStream in = context.getAssets().open(asset)) {
+        try (InputStream in = context.getAssets().open(name)) {
             ByteArrayOutputStream b = new ByteArrayOutputStream();
             byte[] buf = new byte[8192];
             int n;
             while ((n = in.read(buf)) > 0) b.write(buf, 0, n);
-            return b.toByteArray();
+            send(out, 200, type, b.toByteArray(), null);
         }
     }
 
-    static byte[] bytes(String s) {
+    private static byte[] bytes(String s) {
         return s.getBytes(StandardCharsets.UTF_8);
     }
 
     private static void send(OutputStream out, int status, String type, byte[] body, String[] extra)
-            throws IOException {
-        // Screen, camera and microphone for this page only; nothing for frames or other origins.
-        send(out, status, type, body, extra, "display-capture=(self), camera=(self), microphone=(self), geolocation=()");
-    }
-
-    /** {@code permissions}: the page's Permissions-Policy. */
-    static void send(OutputStream out, int status, String type, byte[] body, String[] extra, String permissions)
             throws IOException {
         StringBuilder h = new StringBuilder();
         h.append("HTTP/1.1 ").append(status).append(' ').append(reason(status)).append("\r\n");
@@ -457,7 +464,8 @@ public final class ShareServer {
         h.append("X-Frame-Options: DENY\r\n");
         h.append("Content-Security-Policy: default-src 'self'; media-src 'self' blob: mediastream:; "
                 + "frame-ancestors 'none'; form-action 'none'; base-uri 'none'\r\n");
-        h.append("Permissions-Policy: ").append(permissions).append("\r\n");
+        // Screen, camera and microphone for this page only; nothing for frames or other origins.
+        h.append("Permissions-Policy: display-capture=(self), camera=(self), microphone=(self), geolocation=()\r\n");
         if (extra != null) {
             for (int i = 0; i + 1 < extra.length; i += 2) h.append(extra[i]).append(": ").append(extra[i + 1]).append("\r\n");
         }

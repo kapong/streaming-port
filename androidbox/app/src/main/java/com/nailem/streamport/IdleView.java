@@ -27,21 +27,15 @@ import android.widget.TextView;
 
 /**
  * The screen shown while nobody shares: how to connect from Apple devices (AirPlay) and from any browser (QR
- * code), and, while watching is on, a second QR code top right for the watch page. Laid out in TV pixels on a fixed
- * 1920x1080 canvas (the design in {@code streamport/mock/idle.html});
- * {@link StreamActivity} scales it to the window, and the shared encode draws it off screen with {@link #render}
- * for WHEP viewers while nobody shares.
+ * code: the one page to watch the TV or share to it). Laid out in TV pixels on a fixed 1920x1080 canvas (the
+ * design in {@code streamport/mock/idle.html}); {@link StreamActivity} scales it to the window, and the shared
+ * encode draws it off screen with {@link #render} for WHEP viewers while nobody shares.
  */
 final class IdleView extends FrameLayout {
 
     static final int W = 1920;
     static final int H = 1080;
     private static final int SIDE = 120;
-    /**
-     * The watch QR code: 7 px a module for a short http URL (25 modules), readable from a sofa. 16 px of white box
-     * around it, plus ZXing's centring, make a quiet zone of about 3 modules.
-     */
-    private static final int WATCH_QR = 184;
     private static final int TEAL = 0xFF30E0C4;
     private static final int[] BRAND = {0xFF30E094, 0xFF30E0C4, 0xFF3679F2, 0xFFFF0E36};
 
@@ -52,14 +46,11 @@ final class IdleView extends FrameLayout {
     private final TextView name;
     private final TextView limit;
     private final TextView appleSteps;
+    private final TextView webTitle;
     private final TextView url;
     private final ImageView qr;
     private final TextView admin;
-    private final LinearLayout watch;
-    private final ImageView watchQr;
-    private final TextView watchUrl;
     private String boundUrl = "";
-    private String boundWatchUrl = "";
 
     IdleView(Context c) {
         super(c);
@@ -113,7 +104,8 @@ final class IdleView extends FrameLayout {
         LinearLayout left = new LinearLayout(c);
         left.setOrientation(LinearLayout.VERTICAL);
         left.addView(icon(c, R.drawable.ic_globe, 0x2930E0C4), iconParams());
-        left.addView(text(c, c.getString(R.string.web_title), 36, 600, Color.WHITE));
+        webTitle = text(c, "", 36, 600, Color.WHITE);
+        left.addView(webTitle);
         left.addView(who(c, R.string.web_who));
         left.addView(text(c, c.getString(R.string.web_scan), 25, 300, 0xE0FFFFFF), topMargin(26));
         url = text(c, "", 33, 600, TEAL);
@@ -135,30 +127,6 @@ final class IdleView extends FrameLayout {
         web.addView(fine(c, R.string.web_fine));
         addView(web, at(SIDE + appleW + gap, cardsTop, webW, cardH));
 
-        // Watching the TV, top right in place of the four-screen mark (drawn only while this is hidden).
-        watch = new LinearLayout(c);
-        watch.setOrientation(LinearLayout.VERTICAL);
-        watch.setGravity(Gravity.CENTER_HORIZONTAL);
-        watch.addView(text(c, c.getString(R.string.watch_title), 26, 600, Color.WHITE));
-        FrameLayout watchBox = new FrameLayout(c);
-        GradientDrawable white2 = new GradientDrawable();
-        white2.setColor(Color.WHITE);
-        white2.setCornerRadius(16);
-        watchBox.setBackground(white2);
-        watchQr = new ImageView(c);
-        watchBox.addView(watchQr, new FrameLayout.LayoutParams(WATCH_QR, WATCH_QR, Gravity.CENTER));
-        LinearLayout.LayoutParams wp = new LinearLayout.LayoutParams(WATCH_QR + 32, WATCH_QR + 32);
-        wp.topMargin = 14;
-        watch.addView(watchBox, wp);
-        watchUrl = text(c, "", 24, 600, TEAL);
-        watchUrl.setMaxLines(1);
-        watch.addView(watchUrl, topMargin(12));
-        watch.setVisibility(GONE);
-        FrameLayout.LayoutParams wl = new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.END);
-        wl.topMargin = 84;
-        wl.rightMargin = SIDE;
-        addView(watch, wl);
-
         // Footer.
         admin = text(c, "", 24, 300, 0x8CFFFFFF);
         addView(admin, at(SIDE, H - 44 - 32, -2, -2));
@@ -176,16 +144,9 @@ final class IdleView extends FrameLayout {
         name.setText(receiverName);
         limit.setText(c.getString(R.string.idle_limit, maxStreams));
         appleSteps.setText(semibold(html(c.getString(R.string.apple_steps, TextUtils.htmlEncode(receiverName)))));
-        // Read here, so every rebind (the Hub's refresh, the shared encode's still) follows the switch.
-        String watching = com.nailem.streamport.webrtc.Fanout.watching()
-                ? com.nailem.streamport.webrtc.WatchServer.url(ipv4) : null;
-        watch.setVisibility(watching == null ? GONE : VISIBLE);
-        invalidate(); // the four-screen mark shows in its place
-        if (watching != null && !watching.equals(boundWatchUrl)) {
-            watchQr.setImageBitmap(qrCode(watching, WATCH_QR));
-            watchUrl.setText(watching.substring(0, watching.length() - 1)); // without the trailing "/"
-            boundWatchUrl = watching;
-        }
+        // Read here, so every rebind (the Hub's refresh, the shared encode's still) follows the watch switch.
+        webTitle.setText(com.nailem.streamport.webrtc.Fanout.watching()
+                ? R.string.web_title_watch : R.string.web_title);
         if (ipv4.isEmpty()) {
             url.setText("");
             admin.setText("");
@@ -198,7 +159,7 @@ final class IdleView extends FrameLayout {
         admin.setText(semibold(html(c.getString(R.string.admin_url, ipv4,
                 com.nailem.streamport.admin.AdminServer.PORT))));
         if (!share.equals(boundUrl)) {
-            qr.setImageBitmap(qrCode(share, 216));
+            qr.setImageBitmap(qrCode(share));
             boundUrl = share;
         }
     }
@@ -241,8 +202,7 @@ final class IdleView extends FrameLayout {
                 canvas.drawCircle(x, y, 1.3f, paint);
             }
         }
-        // The four-screen mark, top right, unless the watch QR code is there.
-        if (watch.getVisibility() == VISIBLE) return;
+        // The four-screen mark, top right.
         int cw = 150;
         int ch = 84;
         int gap = 14;
@@ -362,16 +322,12 @@ final class IdleView extends FrameLayout {
         }
     }
 
-    /**
-     * Black on white, whole pixels per module (ZXing scales by an integer and centres), no quiet zone of its own: the
-     * white box around it is that.
-     */
-    private static Bitmap qrCode(String text, int size) {
+    private static Bitmap qrCode(String text) {
         try {
             java.util.Map<com.google.zxing.EncodeHintType, Object> hints = new java.util.HashMap<>();
             hints.put(com.google.zxing.EncodeHintType.MARGIN, 0);
             com.google.zxing.common.BitMatrix m = new com.google.zxing.qrcode.QRCodeWriter()
-                    .encode(text, com.google.zxing.BarcodeFormat.QR_CODE, size, size, hints);
+                    .encode(text, com.google.zxing.BarcodeFormat.QR_CODE, 216, 216, hints);
             Bitmap b = Bitmap.createBitmap(m.getWidth(), m.getHeight(), Bitmap.Config.RGB_565);
             for (int y = 0; y < m.getHeight(); y++) {
                 for (int x = 0; x < m.getWidth(); x++) b.setPixel(x, y, m.get(x, y) ? Color.BLACK : Color.WHITE);

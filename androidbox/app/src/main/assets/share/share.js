@@ -41,12 +41,12 @@ async function loadConfig() {
   places.hidden = false;
   places.textContent = config.free > 0 ? config.free + ' of ' + config.max + ' places free' : 'TV full';
   places.classList.toggle('full', config.free <= 0);
-  // Watching on (the default): the warning holds, and the watch page (plain http, its own port) is a link away.
+  // Watching on (the default): the warning holds, and this page offers to watch the TV too.
   $('notice').hidden = config.watch === false;
-  $('watch-tip').hidden = !config.watch;
-  $('watch-link').href = 'http://' + location.hostname + ':' + config.watchPort + '/';
+  $('watch-card').hidden = !config.watch || watch.active || !!pc;
+  $('verb').textContent = config.watch ? 'Watch or share to' : 'Share to';
   $('footer').textContent = 'StreamPort on ' + config.name + ' \u00b7 ' + location.hostname;
-  document.title = 'Share to ' + config.name;
+  document.title = (config.watch ? 'Watch or share to ' : 'Share to ') + config.name;
 }
 
 const canScreen = () => !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia);
@@ -140,6 +140,9 @@ async function start(kind) {
     return;
   }
   source = kind;
+  // Not both: a shared screen showing the TV, sent to the TV, would show itself over and over.
+  watch.stop();
+  $('watch-card').hidden = true;
   const [video] = stream.getVideoTracks();
   // Screens: keep text sharp. Cameras: keep motion smooth.
   if ('contentHint' in video) video.contentHint = kind === 'screen' ? 'detail' : 'motion';

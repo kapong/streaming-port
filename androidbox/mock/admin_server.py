@@ -8,7 +8,7 @@ STATE = {
     "primary": 1, "max": 4, "maxStreams": 4, "maxStreamsLimit": 8, "resolution": "720p",
     "maxStreamsFor": {"720p": 8, "1080p": 4, "1440p": 2, "4k": 1},
     "ask": "off",
-    "watch": True, "viewers": 3, "watchMax": 20, "watchPort": 8769,
+    "watch": True, "viewers": 3, "watchMax": 20,
     "senders": [
         {"id": 1, "kind": "AirPlay", "name": "Weekly meeting", "model": "Mac14,2", "address": "192.168.1.31",
          "width": 1280, "height": 720, "waiting": False, "quality": "good", "fps": 30, "mbps": 2.1, "jitterMs": 4},

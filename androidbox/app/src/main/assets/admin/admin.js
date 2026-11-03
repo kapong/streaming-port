@@ -77,9 +77,9 @@ function render(s, force) {
   if (s.watch !== undefined) {
     if (force || document.activeElement !== $('watch')) $('watch').value = s.watch ? 'on' : 'off';
     $('viewers').textContent = s.watch ? s.viewers + ' of ' + s.watchMax + ' watching' : '';
-    const url = 'http://' + location.hostname + ':' + s.watchPort + '/';
+    const url = 'https://' + location.hostname + ':9443/'; // the share page (ShareServer.PORT) watches too
     $('watch-hint').textContent = s.watch
-      ? 'Anyone on the Wi-Fi can watch the TV at ' + url + ' (video only, no PIN). The TV shows its address as a QR code, and how many watch.'
+      ? 'Anyone on the Wi-Fi can watch the TV at ' + url + ', the share page (video only, no PIN). The TV shows its QR code, and how many watch.'
       : 'Nobody can watch the TV. Sharing to the TV still works.';
   }
   for (const b of document.querySelectorAll('.seg button')) b.classList.toggle('on', b.dataset.mode === s.layout);

@@ -40,12 +40,8 @@
   .pill[hidden] { display: none; }
   .pill .dot { width: 12px; height: 12px; border-radius: 50%; background: rgba(255,255,255,.35); }
   .pill.live .dot { background: #FF0E36; box-shadow: 0 0 12px #FF0E36; }
-  /* Watching on: the watch page's QR code replaces the four-screen mark (IdleView). */
-  .watch { position: absolute; right: 120px; top: 84px; display: flex; flex-direction: column; align-items: center; }
-  .watch h4 { margin: 0; font-size: 26px; font-weight: 600; line-height: 1; }
-  .watch .qr { width: 216px; height: 216px; margin-top: 14px; border-radius: 16px; background: #fff url(qr.png) center / 184px no-repeat; }
-  .watch .url { font-size: 24px; margin-top: 12px; line-height: 1; }
-  .tv:not(.watching) .watch, .tv:not(.watching) .viewers, .tv.watching .mark { display: none; }
+  /* Watching on: the one QR code's page watches the TV too (IdleView's card title). */
+  .tv:not(.watching) .viewers, .tv:not(.watching) .web-watch, .tv.watching .web-only { display: none; }
   /* StreamActivity's mark over the screen (idle or sharing) while anyone watches. */
   .viewers { position: absolute; right: 24px; top: 24px; padding: 6px 20px; border-radius: 10px; font-size: 24px;
     background: rgba(0,0,0,.6); color: rgba(255,255,255,.9); }
@@ -87,7 +83,6 @@
       <div class="sub">Up to 4 screens at once. The layout adjusts by itself.</div>
     </div>
 
-    <div class="watch"><h4>Watch this TV</h4><div class="qr"></div><div class="url">http://192.168.1.50:9080</div></div>
     <div class="viewers">&#9679;&nbsp; 3 watching</div>
     <div class="mark"><i style="background:#30E094"></i><i style="background:#30E0C4"></i><i style="background:#3679F2"></i><i style="background:#FF0E36"></i></div>
 
@@ -109,7 +104,7 @@
         </div>
         <div class="web">
           <div>
-            <h3>Any browser</h3>
+            <h3><span class="web-watch">Watch or share</span><span class="web-only">Any browser</span></h3>
             <div class="who">Laptops share the screen · phones the camera</div>
             <div class="steps">Scan, or open</div>
             <div class="url">https://192.168.1.50:9443</div>

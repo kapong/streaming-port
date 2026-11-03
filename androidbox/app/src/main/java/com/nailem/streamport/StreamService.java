@@ -53,7 +53,6 @@ public final class StreamService extends Service implements Hub.Listener, AdminS
     private android.app.Notification notification;
     private AdminServer adminServer;
     private volatile com.nailem.streamport.webrtc.ShareServer shareServer;
-    private com.nailem.streamport.webrtc.WatchServer watchServer;
     private android.net.ConnectivityManager.NetworkCallback networkCallback;
     /** The receiver's name, for the share page (read on its threads). */
     private static volatile String receiverName = "";
@@ -218,12 +217,6 @@ public final class StreamService extends Service implements Hub.Listener, AdminS
         } catch (IOException e) {
             Log.e(TAG, "share page did not start", e);
         }
-        watchServer = new com.nailem.streamport.webrtc.WatchServer(this);
-        try {
-            watchServer.start();
-        } catch (IOException e) {
-            Log.e(TAG, "watch page did not start", e);
-        }
         // A new address (joining Wi-Fi after boot, a new DHCP lease) needs a certificate that names it, and new
         // mDNS records on it.
         android.net.ConnectivityManager cm = getSystemService(android.net.ConnectivityManager.class);
@@ -233,7 +226,7 @@ public final class StreamService extends Service implements Hub.Listener, AdminS
                 com.nailem.streamport.webrtc.ShareServer s = shareServer;
                 if (s != null) new Thread(s::onAddressesChanged, "share-readdress").start();
                 if (advertiser != null) advertiser.onNetworkChanged();
-                // The idle screen shows the address too (and the watch QR code): the viewers' still and the TV's.
+                // The idle screen shows the address too: the viewers' still and the TV's.
                 new android.os.Handler(getMainLooper()).post(() -> {
                     sendIdleScreen();
                     Hub.get().refresh();
@@ -449,7 +442,6 @@ public final class StreamService extends Service implements Hub.Listener, AdminS
             getSystemService(android.net.ConnectivityManager.class).unregisterNetworkCallback(networkCallback);
         }
         if (shareServer != null) shareServer.stop();
-        if (watchServer != null) watchServer.stop();
         if (pinOverlay != null) pinOverlay.hide();
         main.removeCallbacks(askTimeout);
         if (askOverlay != null) askOverlay.hide();
@@ -490,7 +482,6 @@ public final class StreamService extends Service implements Hub.Listener, AdminS
         o.put("watch", Config.watch(this));
         o.put("viewers", com.nailem.streamport.webrtc.Fanout.viewers());
         o.put("watchMax", Config.watchMax(this));
-        o.put("watchPort", com.nailem.streamport.webrtc.WatchServer.PORT);
         JSONArray list = new JSONArray();
         for (Screen s : hub.screens()) {
             NetStats.Snapshot st = s.stats();
@@ -578,7 +569,7 @@ public final class StreamService extends Service implements Hub.Listener, AdminS
     public void setWatch(boolean on) {
         Config.set(this, "watch", Boolean.toString(on));
         com.nailem.streamport.webrtc.Fanout.setWatching(on); // off: every viewer's stream ends now
-        Hub.get().refresh(); // the idle screen's watch QR code
+        Hub.get().refresh(); // the idle screen's "Watch or share"
         Log.i(TAG, "admin turned watching " + (on ? "on" : "off"));
     }
 

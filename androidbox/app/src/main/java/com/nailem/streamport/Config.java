@@ -92,7 +92,7 @@ final class Config {
     }
 
     /**
-     * Whether anyone on the LAN may watch the TV (the watch page, WHEP). On by default, like sharing: the share page
+     * Whether anyone on the LAN may watch the TV ("Watch TV" on the share page, WHEP). On by default, like sharing: the share page
      * and the TV say so. Off ends every viewer's stream.
      */
     static boolean watch(Context c) {

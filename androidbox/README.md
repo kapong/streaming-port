@@ -26,8 +26,8 @@ adb shell am start -n com.nailem.streamport/.StreamActivity                     
 
 Then open the admin page at `https://<box-ip>:8089` (log in with the PIN the TV shows) to rename the receiver and set
 the limits. On a box like the Xiaomi TV Box S, **720p and 4 screens** keeps CPU and RAM under 80% (measurements
-below); 1080p suits 1 to 3 screens. Browsers share at `https://<box-ip>:9443` (the TV shows it as a QR code), and
-anyone on the Wi-Fi can watch the TV at `http://<box-ip>:9080` (turn it off with `watch` or on the admin page).
+below); 1080p suits 1 to 3 screens. Browsers watch or share at `https://<box-ip>:9443` (the TV shows it as a QR code;
+turn watching off with `watch` or on the admin page).
 Updates: install a newer release the same way (`adb install -r`); settings stay.
 
 The receiver's name starts as the box's own device name (Settings > Device Preferences > About > Device name), so
@@ -59,12 +59,12 @@ Open `https://BOX_IP:9443` (the TV's idle screen shows it as a QR code), type a 
 Either becomes a tile like an AirPlay sender: same layout, primary, limits, quality dot, kick. The admin page lists it
 as "Screen · Chrome on Windows" or "Camera · Chrome on Android".
 
-The page (`assets/share/`) has the TV welcome screen's look (Outfit, served as `/outfit.ttf`): free places, two
-choices (screen, camera), the microphone switch, the warning that anyone on the network can watch, then a preview with a
+The page (`assets/share/`) has the TV welcome screen's look (Outfit, served as `/outfit.ttf`): "Watch TV" (below),
+free places, two choices (screen, camera), the microphone switch, the warning that anyone on the network can watch, then a preview with a
 three-step progress bar and "On the TV now". Design mock: `mock/share/` (compare old and new at
 `http://localhost:8766/new/compare.html` after `python3 -I androidbox/mock/share_server.py`). To test the real
 page end to end without the self-signed certificate, `mock/share_server.py --box https://BOX_IP:9443` serves it
-on `http://localhost:8767` and passes `/config` and `/whip` to the TV.
+on `http://localhost:8767` and passes `/config`, `/watch/status`, `/whip` and `/whep` to the TV.
 
 - **One way only**, WHIP style (RFC 9725): the page POSTs its SDP offer to `/whip` (`application/sdp`), gets `201`, the
   answer and a secret `Location`; DELETE on that URL ends the share. The TV sends nothing back; the page shows only a
@@ -85,26 +85,27 @@ on `http://localhost:8767` and passes `/config` and `/whip` to the TV.
 
 ## Watching the TV (WHEP)
 
-Anyone on the Wi-Fi can watch the TV in a browser at `http://BOX_IP:9080/` (the share page links to it). It is on by
-default and can be turned off (setting `watch`, or "Watching the TV" on the admin page): off ends every viewer's
-stream at once, `/whep` answers `403`, and the watch page says "Watching is turned off on this TV" and starts again by
-itself once it is turned back on.
+Anyone on the Wi-Fi can watch the TV in a browser on the share page, `https://BOX_IP:9443/`: one QR code and one
+page for watching and sharing. "Watch TV" plays the TV on the page; nothing connects (and the TV's encoder stays off)
+until it is tapped, and watching needs no sharing. Starting to share from the page stops watching there, so the TV
+doesn't show itself over and over. Watching is on by default and can be turned off (setting `watch`, or "Watching
+the TV" on the admin page): off hides "Watch TV", ends every viewer's stream at once, `/whep` answers `403`, and a
+page still watching says "Watching is turned off on this TV" and starts again by itself once it is turned back on.
 
-- **Plain http on purpose**, on its own port (`webrtc/WatchServer.java`, `WatchServer.PORT`): receiving WebRTC works
-  in an insecure context, so viewers get no certificate warning. Sharing (`getDisplayMedia`) needs https and stays on
-  9443; the watch page's "Share to TV" button goes there. The page and its `/whep` share one origin (no CORS).
-- **The page** (`assets/watch/`, the share page's look): one muted video, a WHEP client (POST the offer with every
-  candidate, apply the answer, `DELETE` the resource when the page closes), retries with backoff when the TV is
-  busy or the connection drops, and "N watching" from `GET /watch/status` (`{name, viewers, max, enabled,
-  sharePort}`) every 4 s. Design work: `python3 -I androidbox/mock/share_server.py` also serves it at
-  `http://127.0.0.1:8769/` (`--watch-off` shows the off state).
-- **Any WHEP client** works too: `POST /whep` on either port (9080 or 9443) with a receive-only video offer
-  (`application/sdp`, no trickle ICE); `DELETE` the returned `Location` to stop.
+- **One https page**: viewers see the self-signed certificate's warning on their first visit too, as senders do. The
+  page and its `/whep` share one origin (no CORS).
+- **The client** (`assets/share/watch.js`): one muted video, a WHEP client (POST the offer with every candidate,
+  apply the answer, `DELETE` the resource when the page closes), retries with backoff when the TV is busy or the
+  connection drops, and "N watching" from `GET /watch/status` (`{viewers, max, enabled}`) every 4 s while watching.
+  Design work: `python3 -I androidbox/mock/share_server.py` (`--watch-off` shows the off state; `/whep` answers
+  `503` there, as a busy TV does).
+- **Any WHEP client** works too: `POST /whep` on 9443 with a receive-only video offer (`application/sdp`, no trickle
+  ICE); `DELETE` the returned `Location` to stop.
 
 One hardware H.264 encode is shared by every viewer, and it runs only while someone watches: the welcome screen
 (`IdleView`, drawn off screen) while nobody shares, the TV itself while someone does, so viewers never see whatever else the TV shows (Home,
-other apps). While watching is on, the welcome screen shows the watch page's address and a second QR code (top
-right, in place of the four-screen mark); the TV shows a small "● N watching" mark top right while anyone watches
+other apps). While watching is on, the welcome screen's browser card says "Watch or share" (its QR code is the share
+page's); the TV shows a small "● N watching" mark top right while anyone watches
 (idle or not), and the share page warns senders that the TV can be watched.
 
 - At most `watch_max` viewers (default 20, 1 to 30) and 4 per address; past that `503`. Video only.
@@ -288,11 +289,10 @@ is 960x540 on the TV, so 720p senders lose nothing; 1080p only helps a single fu
 | `admin/AdminServer.java`, `admin/PinOverlay.java`, `assets/admin/` | Admin page: PIN login, JSON API, the page itself |
 | `airplay/Screen.java` | What a tile shows, whatever it is: an AirPlay `Session` or a `BrowserScreen` |
 | `webrtc/ShareServer.java`, `webrtc/BrowserScreen.java`, `webrtc/WebRtcEngine.java` | Browser sharing: HTTPS share page and WHIP endpoint (port 9443), one share, the WebRTC engine |
-| `webrtc/SelfSignedCert.java`, `assets/share/` | The share page's certificate (hand-written DER), the page itself |
+| `webrtc/SelfSignedCert.java`, `assets/share/` | The share page's certificate (hand-written DER), the page itself (sharing, and watching with `watch.js`) |
 | `StreamActivity.java`, `TileView.java`, `TileLayout.java` | Screen, tiles, dynamic and grid layouts |
 | `VideoDecoder.java`, `AudioPlayer.java` | Hardware H.264 decode per tile; AAC-ELD audio for the focused tile |
 | `rebroadcast/Rebroadcaster.java`, `webrtc/Fanout.java`, `webrtc/Whep.java` | Watching the TV: mirror capture, libyuv, one encoder, fanned out to WHEP viewers; the on/off switch |
-| `webrtc/WatchServer.java`, `assets/watch/` | The watch page over plain http (port 9080): the page, `/whep`, `/watch/status` |
 | `StreamService.java`, `Advertiser.java` | Background service, mDNS (`_airplay._tcp`, `_raop._tcp`) via JmDNS on the active network's IPv4 address |
 
 Security review: see `SECURITY.md`.

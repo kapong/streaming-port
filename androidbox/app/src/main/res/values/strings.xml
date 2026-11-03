@@ -11,10 +11,11 @@
     <string name="apple_steps"><![CDATA[Open <b>Control Center</b><br>→ <b>Screen Mirroring</b> → <b>%1$s</b>]]></string>
     <string name="apple_fine">iPhone, iPad: swipe down from the top-right corner. Mac: the Control Center icon in the menu bar.</string>
     <string name="web_title">Any browser</string>
+    <!-- While watching is on: the same page and QR code watch the TV too. -->
+    <string name="web_title_watch">Watch or share</string>
     <string name="web_who">Laptops share the screen · phones the camera</string>
     <string name="web_scan">Scan, or open</string>
     <string name="web_fine">Chrome, Edge, Firefox or Safari. First visit shows a certificate warning: Advanced → Proceed.</string>
-    <string name="watch_title">Watch this TV</string>
     <!-- Top right while anyone watches the TV over WHEP, so everyone in the room knows it is being sent on. -->
     <plurals name="watching">
         <item quantity="one">\u25CF  %1$d watching</item>
