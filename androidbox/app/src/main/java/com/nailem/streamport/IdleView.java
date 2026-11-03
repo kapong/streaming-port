@@ -27,9 +27,9 @@ import android.widget.TextView;
 
 /**
  * The screen shown while nobody shares: how to connect from Apple devices (AirPlay) and from any browser (QR
- * code), and a notice while the LAN rebroadcast is on. Laid out in TV pixels on a fixed 1920x1080 canvas (the
- * design in {@code streamport/mock/idle.html}); {@link StreamActivity} scales it to the window, and the
- * rebroadcast draws it off screen with {@link #render} for VLC viewers while nobody shares.
+ * code). Laid out in TV pixels on a fixed 1920x1080 canvas (the design in {@code streamport/mock/idle.html});
+ * {@link StreamActivity} scales it to the window, and the shared encode draws it off screen with {@link #render}
+ * for WHEP viewers while nobody shares.
  */
 final class IdleView extends FrameLayout {
 
@@ -48,7 +48,6 @@ final class IdleView extends FrameLayout {
     private final TextView appleSteps;
     private final TextView url;
     private final ImageView qr;
-    private final View notice;
     private final TextView admin;
     private String boundUrl = "";
 
@@ -126,36 +125,6 @@ final class IdleView extends FrameLayout {
         web.addView(fine(c, R.string.web_fine));
         addView(web, at(SIDE + appleW + gap, cardsTop, webW, cardH));
 
-        // While the rebroadcast is switched on: say so, before anyone shares, with the address to watch.
-        LinearLayout bar = new LinearLayout(c);
-        bar.setOrientation(LinearLayout.HORIZONTAL);
-        bar.setGravity(Gravity.CENTER_VERTICAL);
-        bar.setPadding(30, 0, 30, 0);
-        GradientDrawable red = new GradientDrawable();
-        red.setColor(0x1AFF0E36);
-        red.setStroke(1, 0x59FF0E36);
-        red.setCornerRadius(22);
-        bar.setBackground(red);
-        View dot = new View(c);
-        GradientDrawable d = new GradientDrawable();
-        d.setShape(GradientDrawable.OVAL);
-        d.setColor(0xFFFF0E36);
-        dot.setBackground(d);
-        LinearLayout.LayoutParams dp = new LinearLayout.LayoutParams(14, 14);
-        dp.rightMargin = 18;
-        bar.addView(dot, dp);
-        TextView say = text(c, "", 25, 300, 0xE0FFFFFF);
-        say.setText(semibold(html(c.getString(R.string.rebroadcast_notice))));
-        say.setMaxLines(1);
-        say.setEllipsize(TextUtils.TruncateAt.END);
-        bar.addView(say, new LinearLayout.LayoutParams(0, -2, 1));
-        LinearLayout.LayoutParams ap = new LinearLayout.LayoutParams(-2, -2);
-        ap.leftMargin = 24;
-        bar.addView(text(c, com.nailem.streamport.rebroadcast.Rebroadcaster.URL, 25, 600, Color.WHITE), ap);
-        notice = bar;
-        notice.setVisibility(GONE);
-        addView(notice, at(SIDE, 904, W - 2 * SIDE, 72));
-
         // Footer.
         admin = text(c, "", 24, 300, 0x8CFFFFFF);
         addView(admin, at(SIDE, H - 44 - 32, -2, -2));
@@ -167,13 +136,12 @@ final class IdleView extends FrameLayout {
         addView(brand, bp);
     }
 
-    /** Fills in what can change: the name, the address, the screen limit, whether the rebroadcast is on. */
-    void bind(String receiverName, String ipv4, int maxStreams, boolean rebroadcast) {
+    /** Fills in what can change: the name, the address, the screen limit. */
+    void bind(String receiverName, String ipv4, int maxStreams) {
         Context c = getContext();
         name.setText(receiverName);
         limit.setText(c.getString(R.string.idle_limit, maxStreams));
         appleSteps.setText(semibold(html(c.getString(R.string.apple_steps, TextUtils.htmlEncode(receiverName)))));
-        notice.setVisibility(rebroadcast ? VISIBLE : GONE);
         if (ipv4.isEmpty()) {
             url.setText("");
             admin.setText("");
@@ -191,10 +159,10 @@ final class IdleView extends FrameLayout {
         }
     }
 
-    /** Draws the screen off screen at 1920x1080, for the rebroadcast while nobody shares. Main thread. */
-    static Bitmap render(Context c, String receiverName, String ipv4, int maxStreams, boolean rebroadcast) {
+    /** Draws the screen off screen at 1920x1080, for WHEP viewers while nobody shares. Main thread. */
+    static Bitmap render(Context c, String receiverName, String ipv4, int maxStreams) {
         IdleView v = new IdleView(c);
-        v.bind(receiverName, ipv4, maxStreams, rebroadcast);
+        v.bind(receiverName, ipv4, maxStreams);
         v.measure(MeasureSpec.makeMeasureSpec(W, MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(H, MeasureSpec.EXACTLY));
         v.layout(0, 0, W, H);
         Bitmap b = Bitmap.createBitmap(W, H, Bitmap.Config.ARGB_8888);

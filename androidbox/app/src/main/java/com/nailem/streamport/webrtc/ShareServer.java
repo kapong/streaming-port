@@ -298,7 +298,6 @@ public final class ShareServer {
             o.put("fps", Limits.FPS);
             o.put("free", Math.max(0, Limits.maxStreams() - hub.count()));
             o.put("max", Limits.maxStreams());
-            o.put("rebroadcast", com.nailem.streamport.StreamService.rebroadcastOn(context));
         } catch (JSONException ignored) {
         }
         return o;

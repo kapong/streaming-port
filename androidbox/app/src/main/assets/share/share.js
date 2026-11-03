@@ -37,7 +37,6 @@ async function loadConfig() {
     if (r.ok) config = await r.json();
   } catch (e) { /* keep defaults */ }
   $('tv').textContent = config.name;
-  $('rebroadcast-notice').hidden = !config.rebroadcast;
   const places = $('places');
   places.hidden = false;
   places.textContent = config.free > 0 ? config.free + ' of ' + config.max + ' places free' : 'TV full';

@@ -88,7 +88,7 @@ trusts them for authentication.
 | `SYSTEM_ALERT_WINDOW` (appop) | Bring the tiles to the front when a sender connects; show the admin PIN over other apps | Draw over other apps. The PIN overlay is not focusable or touchable and shows fixed text |
 | `WRITE_SECURE_SETTINGS` | Keep the Chromecast/Miracast name (`device_name`) equal to the AirPlay name | Change system settings. The app writes only `device_name`, only from the logged-in admin page or the adb settings broadcast, with a cleaned name (printable, at most 50 bytes) |
 
-| `PROJECT_MEDIA` (appop) | Start the LAN rebroadcast without a consent dialog nobody is there to click | Capture the screen. Used only while `rebroadcast` is on and someone is sharing; the TV shows "Live on the network" meanwhile |
+| `PROJECT_MEDIA` (appop) | Capture the TV for WHEP viewers without a consent dialog nobody is there to click | Capture the screen. Used only while someone watches and someone is sharing; the TV shows "Live on the network" meanwhile |
 
 Revoke either with `adb shell pm revoke com.nailem.streamport android.permission.WRITE_SECURE_SETTINGS` or
 `adb shell appops set com.nailem.streamport SYSTEM_ALERT_WINDOW deny`; the app keeps working without the feature.
@@ -104,7 +104,7 @@ Revoke either with `adb shell pm revoke com.nailem.streamport android.permission
 | New key exchanges | 10 per host per minute |
 | Video packet | 2 MB per 1080p of the limit (8 MB at 4K) |
 | Decoder queue | 120 frames or 16 MB per tile |
-| Hardware decoders | Pixels of all screens together at most 4K + 1080p (4K while the rebroadcast encodes); a screen past that is disconnected when its size is known, before it reaches a decoder (past the limit Android's codec layer crashed the app) |
+| Hardware decoders | Pixels of all screens together at most 4K + 1080p (4K while the shared encode runs for viewers); a screen past that is disconnected when its size is known, before it reaches a decoder (past the limit Android's codec layer crashed the app) |
 
 ## 6. Independent audit, round 2 (Fable)
 
@@ -158,13 +158,14 @@ Audit findings and fixes:
 Accepted: the self-signed certificate means someone able to intercept traffic on the Wi-Fi (ARP spoofing) could proxy
 the page and learn a share's secret URL. Same for the admin page, which uses the same certificate: LAN only, documented.
 
-## 8. LAN rebroadcast (multicast)
+## 8. Watching the TV (WHEP)
 
-Off by default (`rebroadcast` setting, admin page). When on, the TV is sent unencrypted to
-`udp://239.255.42.42:5004` while someone shares: **anyone on the Wi-Fi can watch it**, including screens shared by
-people who don't know. While nobody shares only the welcome screen is sent, drawn off screen, so nothing else the TV
-shows (Home, other apps) goes out, and the screen capture is held only while someone shares. Mitigations: off by
-default, the welcome screen says it is on and gives the address, the tiles show "Live on the network", the share page
-tells browser senders before they share, TTL 1 (never routed off the segment), nothing is received on that port
-(send only). The capture needs the `PROJECT_MEDIA` appop (section 4). Encoder and capture errors stop the rebroadcast
-instead of the app.
+Always on: `POST /whep` on the share port (9443, LAN only, like every port) lets **anyone on the Wi-Fi watch the
+TV**, including screens shared by people who don't know. While nobody shares only the welcome screen is sent, drawn
+off screen, so nothing else the TV shows (Home, other apps) goes out, and the screen capture is held only while
+someone shares and someone watches. The encoder runs only while at least one viewer is connected. Mitigations: the
+share page tells browser senders before they share, the tiles show "Live on the network" while anyone watches,
+`watch_max` viewers at most (default 20) and 4 per address, each viewer's resource URL is a random secret, media is
+DTLS-SRTP. A PIN for watching is planned, not built. The capture needs the `PROJECT_MEDIA` appop (section 4). Encoder
+and capture errors end the viewers' streams instead of the app. The UDP multicast output (MPEG-TS for VLC) that
+came before was removed.

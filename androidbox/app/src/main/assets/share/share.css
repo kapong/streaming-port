@@ -67,7 +67,6 @@ input[type=text]:focus { outline: 2px solid var(--teal); border-color: transpare
   background: rgba(255,14,54,.10); border: 1px solid rgba(255,14,54,.35); color: rgba(255,255,255,.88); }
 .notice .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--red); box-shadow: 0 0 10px var(--red);
   flex: none; margin-top: 6px; }
-.notice code { font: 600 14px Outfit, monospace; color: #fff; white-space: nowrap; }
 .tips { color: var(--muted); font-size: 14px; margin: 14px 2px 0; }
 
 /* While sharing */

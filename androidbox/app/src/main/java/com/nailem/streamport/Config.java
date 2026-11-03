@@ -69,26 +69,19 @@ final class Config {
     }
 
     /**
-     * Rebroadcast defaults: light enough next to four 720p screens (measured 2026-10-27: CPU 78% at 12 fps, 79% at
-     * 15). It is for presentations, so 12 fps is plenty (anything over 10 is fine).
+     * Defaults of the encode WHEP viewers watch: light enough next to four 720p screens (measured 2026-10-27: CPU
+     * 78% at 12 fps, 79% at 15). It is for presentations, so 12 fps is plenty (anything over 10 is fine). The
+     * settings keep their "rebroadcast_" names from when this encode also went to UDP multicast.
      */
     static final int REBROADCAST_HEIGHT = 720;
     static final int REBROADCAST_FPS = 12;
 
-    /**
-     * Rebroadcast what the TV shows to the LAN (UDP multicast, for VLC) while someone is sharing. Off by default:
-     * when on, anyone on the network can watch whatever is shared.
-     */
-    static boolean rebroadcast(Context c) {
-        return prefs(c).getBoolean("rebroadcast", false);
-    }
-
-    /** The rebroadcast's height: 720 or 1080 (16:9). */
+    /** The viewers' encode height: 720 or 1080 (16:9). */
     static int rebroadcastHeight(Context c) {
         return prefs(c).getInt("rebroadcast_res", REBROADCAST_HEIGHT);
     }
 
-    /** The rebroadcast's frame rate, 5 to 30. */
+    /** The viewers' encode frame rate, 5 to 30. */
     static int rebroadcastFps(Context c) {
         return prefs(c).getInt("rebroadcast_fps", REBROADCAST_FPS);
     }
@@ -161,9 +154,6 @@ final class Config {
                     default:
                         throw new IllegalArgumentException("ask: true, false or always");
                 }
-                break;
-            case "rebroadcast":
-                e.putBoolean("rebroadcast", Boolean.parseBoolean(value));
                 break;
             case "rebroadcast_res":
                 if (!value.trim().equals("720p") && !value.trim().equals("1080p")) {

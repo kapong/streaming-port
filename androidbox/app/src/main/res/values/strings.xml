@@ -3,7 +3,7 @@
     <string name="default_receiver_name">StreamPort</string>
     <string name="channel_name">AirPlay receiver</string>
     <string name="notification_text">Ready for AirPlay screen mirroring</string>
-    <!-- Idle screen (also what the LAN rebroadcast sends while nobody shares). <b> is drawn semibold. -->
+    <!-- Idle screen (also what WHEP viewers see while nobody shares). <b> is drawn semibold. -->
     <string name="idle_eyebrow">Share your screen to</string>
     <string name="idle_limit">Up to %1$d screens at once. The layout adjusts by itself.</string>
     <string name="apple_title">iPhone, iPad, Mac</string>
@@ -14,7 +14,6 @@
     <string name="web_who">Laptops share the screen · phones the camera</string>
     <string name="web_scan">Scan, or open</string>
     <string name="web_fine">Chrome, Edge, Firefox or Safari. First visit shows a certificate warning: Advanced → Proceed.</string>
-    <string name="rebroadcast_notice"><![CDATA[<b>Rebroadcast is on:</b> shared screens are also streamed to everyone on the network. Watch in VLC]]></string>
     <string name="live_mark">\u25CF  Live on the network</string>
     <string name="connecting">Connecting %1$s…</string>
     <string name="pending_title">%1$s wants to share its screen</string>

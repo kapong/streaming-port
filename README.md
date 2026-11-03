@@ -11,7 +11,7 @@
 
 | Folder | What |
 |---|---|
-| [`androidbox/`](androidbox/) | **StreamPort for Android TV boxes**: AirPlay mirroring (iPhone, iPad, Mac) and browser sharing (screen or camera, WebRTC/WHIP) from up to 4 senders at once, an admin page, and an optional LAN rebroadcast for VLC. Tested on the Xiaomi TV Box S (2nd gen, Android 11). |
+| [`androidbox/`](androidbox/) | **StreamPort for Android TV boxes**: AirPlay mirroring (iPhone, iPad, Mac) and browser sharing (screen or camera, WebRTC/WHIP) from up to 4 senders at once, an admin page, and watching the TV from a browser over WebRTC (WHEP). Tested on the Xiaomi TV Box S (2nd gen, Android 11). |
 
 ## What it looks like
 

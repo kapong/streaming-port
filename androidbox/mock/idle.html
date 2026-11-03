@@ -54,13 +54,6 @@
   .web .qr { width: 240px; height: 240px; border-radius: 20px; background: #fff url(qr.png) center / 216px no-repeat; }
   .url { font-size: 33px; font-weight: 600; margin-top: 18px; color: #30E0C4; letter-spacing: .3px; }
 
-  .notice { position: absolute; left: 120px; right: 120px; top: 904px; height: 72px; box-sizing: border-box; border-radius: 22px;
-    display: flex; align-items: center; gap: 18px; padding: 0 30px; font-size: 25px; font-weight: 300;
-    background: rgba(255,14,54,.10); border: 1px solid rgba(255,14,54,.35); color: rgba(255,255,255,.88); }
-  .notice[hidden] { display: none; }
-  .notice .dot { width: 14px; height: 14px; border-radius: 50%; background: #FF0E36; box-shadow: 0 0 12px #FF0E36; flex: none; }
-  .notice b { font-weight: 600; }
-  .notice .addr { margin-left: auto; font-weight: 600; color: #fff; letter-spacing: .3px; }
   .foot { position: absolute; left: 120px; right: 120px; bottom: 44px; display: flex; justify-content: space-between; font-size: 24px; color: rgba(255,255,255,.55); font-weight: 300; }
   .foot b { color: rgba(255,255,255,.7); font-weight: 400; }
 </style>
@@ -69,7 +62,6 @@
 <div class="bar">
   <button data-v="current">Current (on the TV now)</button>
   <button data-v="new" class="on">New design</button>
-  <button id="live">Rebroadcast setting: off</button>
   <span class="note">1920×1080 TV pixels, scaled to fit. After 10 min with nobody sharing, the TV goes back to Home.</span>
 </div>
 <div class="frame" id="frame">
@@ -117,8 +109,6 @@
 
     </div>
 
-    <div class="notice" id="notice" hidden><span class="dot"></span><span><b>Rebroadcast is on:</b> shared screens are also streamed to everyone on the network. Watch in VLC</span><span class="addr">udp://@239.255.42.42:5004</span></div>
-
     <div class="foot">
       <span>Admin <b>http://192.168.1.50:8089</b></span>
       <span>StreamPort</span>
@@ -137,11 +127,6 @@
     document.getElementById('current').hidden = b.dataset.v !== 'current';
     document.getElementById('new').hidden = b.dataset.v !== 'new';
   }));
-  document.getElementById('live').addEventListener('click', (e) => {
-    const n = document.getElementById('notice'); n.hidden = !n.hidden;
-    e.target.textContent = 'Rebroadcast setting: ' + (n.hidden ? 'off' : 'on');
-    e.target.classList.toggle('on', !n.hidden);
-  });
 </script>
 </body>
 </html>

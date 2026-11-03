@@ -70,14 +70,6 @@ function render(s, force) {
     ? 'Chromecast and Miracast use the same name (now \u201C' + s.boxName + '\u201D).'
     : 'Chromecast and Miracast are still \u201C' + s.boxName + '\u201D: renaming them needs a one-time adb grant (see the README).';
   $('miracast-card').hidden = !s.miracast;
-  if (s.rebroadcast) {
-    if (force || document.activeElement !== $('rb-on')) $('rb-on').checked = s.rebroadcast.enabled;
-    $('rb-url').textContent = s.rebroadcast.url;
-    $('rb-status').textContent = !s.rebroadcast.enabled ? 'Off.'
-      : !s.rebroadcast.live ? 'On: starting.'
-      : s.rebroadcast.mirroring ? '\u25CF Live now: sending the TV.'
-      : '\u25CF Live now: sending the welcome screen until someone shares.';
-  }
   if (s.ask) {
     if (force || document.activeElement !== $('ask')) $('ask').value = s.ask;
     $('ask-hint').textContent = ASK_HINTS[s.ask] || '';
@@ -211,13 +203,6 @@ $('pin-form').onsubmit = async (ev) => {
 };
 
 $('resolution').onchange = () => fillStreamOptions();
-
-$('rb-on').onchange = () => {
-  const on = $('rb-on').checked;
-  act(() => api('rebroadcast', { enabled: on }), () => on
-    ? 'Rebroadcast on: the welcome screen now, the TV whenever someone shares. Watch in VLC at ' + $('rb-url').textContent + '.'
-    : 'Rebroadcast off.');
-};
 
 $('ask').onchange = () => {
   const mode = $('ask').value;

@@ -92,7 +92,7 @@ public final class StreamActivity extends Activity implements Hub.Listener, Tile
         FrameLayout.LayoutParams hp = new FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
         hp.bottomMargin = 40;
         root.addView(hint, hp);
-        // Shown while the TV is rebroadcast to the LAN, so everyone in the room knows it is being sent on.
+        // Shown while someone watches the TV over WHEP, so everyone in the room knows it is being sent on.
         liveMark = new TextView(this);
         liveMark.setText(R.string.live_mark);
         liveMark.setTextColor(0xE6FFFFFF);
@@ -188,8 +188,7 @@ public final class StreamActivity extends Activity implements Hub.Listener, Tile
                 finish();
                 return;
             }
-            idle.bind(Config.name(this), ipv4(), com.nailem.streamport.airplay.Limits.maxStreams(),
-                    Config.rebroadcast(this));
+            idle.bind(Config.name(this), ipv4(), com.nailem.streamport.airplay.Limits.maxStreams());
             idle.setVisibility(View.VISIBLE);
             main.removeCallbacks(idleTimeout);
             main.postDelayed(idleTimeout, IDLE_MS);
@@ -197,7 +196,7 @@ public final class StreamActivity extends Activity implements Hub.Listener, Tile
         }
         main.removeCallbacks(idleTimeout);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-        liveMark.setVisibility(Config.rebroadcast(this) ? View.VISIBLE : View.GONE);
+        liveMark.setVisibility(com.nailem.streamport.webrtc.Fanout.viewers() > 0 ? View.VISIBLE : View.GONE);
         liveMark.bringToFront();
         if (!captureAsked && StreamService.wantsCapture(this)) {
             // With the adb grant (appops PROJECT_MEDIA allow) Android answers at once, without a dialog.

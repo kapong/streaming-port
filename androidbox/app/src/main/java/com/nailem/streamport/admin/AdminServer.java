@@ -88,9 +88,6 @@ public final class AdminServer {
         /** Returns an error message, or null when saved. */
         String setLimits(int maxStreams, String resolution);
 
-        /** Rebroadcast to the LAN while someone shares (applies at once). */
-        void setRebroadcast(boolean on);
-
         /** Ask before showing a new sender (applies at once); {@code setting} is Config's: false, true or always. */
         void setAsk(String setting);
 
@@ -408,10 +405,6 @@ public final class AdminServer {
                     json(out, err == null ? 200 : 400, err == null ? admin.state() : error(err), null);
                     return;
                 }
-                case "POST /api/rebroadcast":
-                    admin.setRebroadcast(body.getBoolean("enabled"));
-                    json(out, 200, admin.state(), null);
-                    return;
                 case "POST /api/ask": {
                     String setting = askSetting(body.getString("mode"));
                     if (setting == null) {
