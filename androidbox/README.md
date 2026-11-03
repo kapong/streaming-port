@@ -122,6 +122,12 @@ page's); the TV shows a small "● N watching" mark top right while anyone watch
 adb shell appops set com.nailem.streamport PROJECT_MEDIA allow
 ```
 
+**Known log message**: while anyone watches, logcat on the Xiaomi MiTV-AFMU1 (Amlogic, Mali GPU, Android 14) shows
+`E/mali_gralloc: Attempt to call unlock*() on an buffer locked with invalid write locks` a few times per second. It
+comes from the vendor gralloc inside Android's MediaCodec input buffer layer (the codec looper thread), not from the
+app's code; it stops when nobody watches and has no visible effect. Measured alternatives (ByteBuffer input, an input
+Surface fed by an `ImageWriter`) did not reliably remove it, so the app leaves it alone.
+
 ## How it behaves
 
 - Runs in the background from boot. When a sender connects, the TV switches to Stream Port; when the last one
