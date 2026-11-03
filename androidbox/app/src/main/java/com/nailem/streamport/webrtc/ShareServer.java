@@ -45,6 +45,8 @@ import javax.net.ssl.SSLSocket;
  * </ul>
  * Like AirPlay, senders are accepted without asking (the default) within the same limits: LAN only,
  * {@link Limits#maxStreams} screens, {@link Hub#MAX_PER_HOST} per address, ten offers per address per minute.
+ * <p>
+ * It also serves {@link Whep}: anyone on the LAN can watch the TV.
  */
 public final class ShareServer {
 
@@ -245,6 +247,10 @@ public final class ShareServer {
     }
 
     private void route(Request r, OutputStream out, InetAddress from) throws IOException {
+        if (Whep.route(context, r.method, r.path, r.header("Content-Type"), r.body, from,
+                (status, type, body, extra) -> send(out, status, type, body, extra))) {
+            return;
+        }
         switch (r.method + " " + r.path) {
             case "GET /":
                 asset(out, "share/index.html", "text/html; charset=utf-8");

@@ -118,12 +118,14 @@ public final class StreamService extends Service implements Hub.Listener, AdminS
         }
         Hub.get().setAskBeforeShowing(Config.ask(this), Config.askAlways(this));
         Config.applyLimits(this);
+        com.nailem.streamport.webrtc.Fanout.setMaxViewers(Config.watchMax(this));
         String name = Config.name(this);
         if (!name.equals(server.name())) applyName(name);
-        boolean on = Config.rebroadcast(this);
+        boolean on = wantsRebroadcast();
         boolean changed = rebroadcaster != null && (rebroadcaster.height() != Config.rebroadcastHeight(this)
                 || rebroadcaster.fps() != Config.rebroadcastFps(this));
         if (!on || changed) stopRebroadcast();
+        if (rebroadcaster != null) rebroadcaster.setMulticast(Config.rebroadcast(this));
         if (on) startRebroadcast(); // after a stop, once the old encoder has let go
         sendIdleScreen();
         Hub.get().refresh();
@@ -191,6 +193,13 @@ public final class StreamService extends Service implements Hub.Listener, AdminS
         } catch (IOException e) {
             Log.e(TAG, "admin page did not start", e);
         }
+        // WHEP viewers keep the shared encoder on; it stops with the last one unless multicast is on.
+        com.nailem.streamport.webrtc.Fanout.setMaxViewers(Config.watchMax(this));
+        com.nailem.streamport.webrtc.Fanout.setViewerListener(viewers -> {
+            if (running != this) return;
+            if (viewers > 0) startRebroadcast();
+            else if (!Config.rebroadcast(this)) stopRebroadcast();
+        });
         shareServer = new com.nailem.streamport.webrtc.ShareServer(this);
         try {
             shareServer.start();
@@ -217,7 +226,7 @@ public final class StreamService extends Service implements Hub.Listener, AdminS
             }
         };
         cm.registerDefaultNetworkCallback(networkCallback);
-        if (Config.rebroadcast(this)) startRebroadcast();
+        if (wantsRebroadcast()) startRebroadcast();
     }
 
     @Override
@@ -227,7 +236,7 @@ public final class StreamService extends Service implements Hub.Listener, AdminS
 
     @Override
     public void onSessionsChanged() {
-        if (!Config.rebroadcast(this)) {
+        if (!wantsRebroadcast()) {
             stopRebroadcast();
         } else {
             startRebroadcast();
@@ -296,10 +305,15 @@ public final class StreamService extends Service implements Hub.Listener, AdminS
         return Config.rebroadcast(c);
     }
 
-    /** True while something is sent to the LAN (the idle screen or the TV). */
+    /** Whether the encoder should run: multicast is switched on, or someone watches over WHEP. */
+    private boolean wantsRebroadcast() {
+        return Config.rebroadcast(this) || com.nailem.streamport.webrtc.Fanout.viewers() > 0;
+    }
+
+    /** True while something is multicast to the LAN (the idle screen or the TV). */
     static boolean rebroadcasting() {
         StreamService s = running;
-        return s != null && s.rebroadcaster != null && s.rebroadcaster.isRunning();
+        return s != null && s.rebroadcaster != null && s.rebroadcaster.isRunning() && s.rebroadcaster.isMulticast();
     }
 
     /** True while the TV itself is sent (someone shares). */
@@ -311,10 +325,10 @@ public final class StreamService extends Service implements Hub.Listener, AdminS
     /** The capture was handed to the rebroadcaster and not yet given back. Main thread. */
     private boolean capturing;
 
-    /** Whether the activity should ask for a capture now: switched on, someone sharing, not captured yet. */
+    /** Whether the activity should ask for a capture now: encoding, someone sharing, not captured yet. */
     static boolean wantsCapture(android.content.Context c) {
         StreamService s = running;
-        return s != null && Config.rebroadcast(c) && Hub.get().count() > 0 && s.rebroadcaster != null && !s.capturing;
+        return s != null && s.wantsRebroadcast() && Hub.get().count() > 0 && s.rebroadcaster != null && !s.capturing;
     }
 
     /** The activity got the capture grant (silently, thanks to the adb appop). Main thread. */
@@ -338,9 +352,12 @@ public final class StreamService extends Service implements Hub.Listener, AdminS
         if (rebroadcaster != null) return;
         com.nailem.streamport.rebroadcast.Rebroadcaster r = new com.nailem.streamport.rebroadcast.Rebroadcaster(
                 which -> new android.os.Handler(getMainLooper()).post(() -> {
-                    if (rebroadcaster == which) stopRebroadcast(); // not a replacement started since
+                    if (rebroadcaster != which) return; // a replacement started since
+                    stopRebroadcast();
+                    // Viewers would only see a frozen picture: end their streams instead.
+                    com.nailem.streamport.webrtc.Fanout.closeAll("the shared encode stopped");
                 }),
-                Config.rebroadcastHeight(this), Config.rebroadcastFps(this));
+                Config.rebroadcastHeight(this), Config.rebroadcastFps(this), Config.rebroadcast(this));
         try {
             r.start();
         } catch (Exception e) {
@@ -407,7 +424,7 @@ public final class StreamService extends Service implements Hub.Listener, AdminS
                     rebroadcastStopping = false;
                     boolean again = restartWanted;
                     restartWanted = false;
-                    if (again && running == this && Config.rebroadcast(this)) startRebroadcast();
+                    if (again && running == this && wantsRebroadcast()) startRebroadcast();
                 });
             }
         }, "rebroadcast-stop").start();

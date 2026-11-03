@@ -93,6 +93,11 @@ final class Config {
         return prefs(c).getInt("rebroadcast_fps", REBROADCAST_FPS);
     }
 
+    /** At most this many watch the TV over WHEP at once: each costs about the stream's bitrate in uplink, and CPU. */
+    static int watchMax(Context c) {
+        return prefs(c).getInt("watch_max", com.nailem.streamport.webrtc.Fanout.DEFAULT_MAX_VIEWERS);
+    }
+
     /** Pushes the stored resolution and stream limits into {@link Limits}. */
     static void applyLimits(Context c) {
         SharedPreferences p = prefs(c);
@@ -175,6 +180,17 @@ final class Config {
                 }
                 if (f < 5 || f > 30) throw new IllegalArgumentException("rebroadcast_fps: a number from 5 to 30");
                 e.putInt("rebroadcast_fps", f);
+                break;
+            }
+            case "watch_max": {
+                int max;
+                try {
+                    max = Integer.parseInt(value.trim());
+                } catch (NumberFormatException ex) {
+                    max = -1;
+                }
+                if (max < 1 || max > 30) throw new IllegalArgumentException("watch_max: a number from 1 to 30");
+                e.putInt("watch_max", max);
                 break;
             }
             case "max_res":

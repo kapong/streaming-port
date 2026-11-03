@@ -26,6 +26,9 @@ import java.util.Collections;
  * Runs whenever the admin page has it switched on. While nobody shares it sends a still picture (the idle screen,
  * {@link #setStill}), so whatever else the TV shows never goes out; while someone shares it sends the TV itself,
  * captured with MediaProjection ({@link #attach}, {@link #detach}).
+ * <p>
+ * The same encode also goes to WHEP viewers ({@link com.nailem.streamport.webrtc.Fanout}); while only they want it,
+ * it runs with multicast off ({@link #setMulticast}).
  */
 public final class Rebroadcaster {
 
@@ -85,6 +88,20 @@ public final class Rebroadcaster {
     private InetSocketAddress target;
     private Thread drain;
     private volatile boolean running;
+    /** Whether the encode also goes to UDP multicast; off while it runs only for WHEP viewers. */
+    private volatile boolean multicast;
+    /** Fanout's keyframe request: the next frame is an IDR. */
+    private final Runnable requestKeyframe = () -> {
+        MediaCodec enc = encoder;
+        if (enc == null) return;
+        android.os.Bundle b = new android.os.Bundle();
+        b.putInt(MediaCodec.PARAMETER_KEY_REQUEST_SYNC_FRAME, 0);
+        try {
+            enc.setParameters(b);
+        } catch (IllegalStateException ignored) {
+            // Encoder stopping.
+        }
+    };
 
     private final byte[] datagram = new byte[TsMuxer.PACKET * PACKETS_PER_DATAGRAM];
     private int filled;
@@ -94,9 +111,13 @@ public final class Rebroadcaster {
     private long statBytes;
     private long statSince = android.os.SystemClock.uptimeMillis();
 
-    /** {@code height} 720 or 1080 (16:9); {@code fps} what the network gets, which also bounds the capture cost. */
-    public Rebroadcaster(Listener listener, int height, int fps) {
+    /**
+     * {@code height} 720 or 1080 (16:9); {@code fps} what the network gets, which also bounds the capture cost;
+     * {@code multicast} whether it goes to UDP multicast too (see {@link #setMulticast}).
+     */
+    public Rebroadcaster(Listener listener, int height, int fps, boolean multicast) {
         this.listener = listener;
+        this.multicast = multicast;
         this.height = height;
         this.width = height * 16 / 9;
         this.fps = fps;
@@ -123,7 +144,8 @@ public final class Rebroadcaster {
         f.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible);
         f.setInteger(MediaFormat.KEY_BIT_RATE, (int) ((long) BITRATE_1080P * width * height / (1920 * 1080)));
         f.setInteger(MediaFormat.KEY_FRAME_RATE, fps);
-        f.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1); // a viewer joining sees a picture within a second
+        // WHEP viewers joining ask for a keyframe at once; multicast (VLC) joiners wait up to this long.
+        f.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 2);
         encoder = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_VIDEO_AVC);
         encoder.configure(f, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
         encoder.start();
@@ -132,10 +154,11 @@ public final class Rebroadcaster {
         captureHandler = new android.os.Handler(captureThread.getLooper());
         captureHandler.postDelayed(repeat, REPEAT_MS);
         running = true;
+        com.nailem.streamport.webrtc.Fanout.encoderStarted(requestKeyframe);
         drain = new Thread(this::drainLoop, "rebroadcast");
         drain.start();
-        Log.i(TAG, "rebroadcast: live on " + URL + " (" + width + "x" + height + " at " + fps + " fps) via "
-                + (lan != null ? lan.getName() : "default route"));
+        Log.i(TAG, "rebroadcast: " + width + "x" + height + " at " + fps + " fps, " + (multicast ? "live on " + URL
+                + " via " + (lan != null ? lan.getName() : "default route") : "WHEP viewers only"));
     }
 
     public int height() {
@@ -148,6 +171,17 @@ public final class Rebroadcaster {
 
     public boolean isRunning() {
         return running;
+    }
+
+    /** Whether it also goes to UDP multicast. */
+    public boolean isMulticast() {
+        return multicast;
+    }
+
+    /** Multicast on or off without touching the encode (WHEP viewers keep watching). Any thread. */
+    public void setMulticast(boolean on) {
+        if (multicast != on) Log.i(TAG, "rebroadcast: multicast " + (on ? "on, " + URL : "off"));
+        multicast = on;
     }
 
     /** True while the TV itself is sent (someone shares), false while the still picture is. */
@@ -245,6 +279,7 @@ public final class Rebroadcaster {
     public synchronized void stop() {
         if (!running && encoder == null) return;
         running = false;
+        com.nailem.streamport.webrtc.Fanout.encoderStopped(requestKeyframe);
         android.os.Handler h = captureHandler;
         if (h != null) {
             // The capture objects belong to the capture thread; let it let go of them before it ends.
@@ -454,8 +489,11 @@ public final class Rebroadcaster {
                         }
                         if (firstPtsUs < 0) firstPtsUs = info.presentationTimeUs;
                         long pts90k = 90_000 + (info.presentationTimeUs - firstPtsUs) * 9 / 100;
-                        muxer.writeFrame(data, 0, data.length, pts90k, key);
-                        flush(); // one frame, sent now: keeps latency at a frame or two
+                        com.nailem.streamport.webrtc.Fanout.publish(data, key, width, height);
+                        if (multicast) {
+                            muxer.writeFrame(data, 0, data.length, pts90k, key);
+                            flush(); // one frame, sent now: keeps latency at a frame or two
+                        }
                         statFrames++;
                         statBytes += data.length;
                         long now = android.os.SystemClock.uptimeMillis();
