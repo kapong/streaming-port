@@ -159,7 +159,8 @@ final class IdleView extends FrameLayout {
         // Footer.
         admin = text(c, "", 24, 300, 0x8CFFFFFF);
         addView(admin, at(SIDE, H - 44 - 32, -2, -2));
-        TextView brand = text(c, c.getString(R.string.app_name), 24, 300, 0x8CFFFFFF);
+        TextView brand = text(c, c.getString(R.string.app_name) + " v" + BuildConfig.VERSION_NAME, 24, 300,
+                0x8CFFFFFF);
         FrameLayout.LayoutParams bp = new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.END);
         bp.topMargin = H - 44 - 32;
         bp.rightMargin = SIDE;
