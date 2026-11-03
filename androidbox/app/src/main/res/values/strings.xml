@@ -19,6 +19,7 @@
     <string name="connecting">Connecting %1$s…</string>
     <string name="pending_title">%1$s wants to share its screen</string>
     <string name="pending_keys">OK  allow     BACK  refuse</string>
+    <string name="pending_more">+%1$d more waiting</string>
     <string name="hint_keys">Arrows  primary     OK  dynamic / grid / focus     MENU  disconnect</string>
     <string name="layout_grid">Grid layout</string>
     <string name="layout_dynamic">Dynamic layout</string>

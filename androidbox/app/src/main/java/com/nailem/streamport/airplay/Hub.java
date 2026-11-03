@@ -115,6 +115,15 @@ public final class Hub {
         return screens.size();
     }
 
+    /** Screens waiting for OK, oldest first. */
+    public synchronized List<Screen> pending() {
+        List<Screen> out = new ArrayList<>();
+        for (Screen s : screens) {
+            if (s.state() == Screen.State.PENDING && !s.isClosed()) out.add(s);
+        }
+        return out;
+    }
+
     public synchronized int nextId() {
         return nextId++;
     }
@@ -210,7 +219,15 @@ public final class Hub {
             if (audible == s) audible = null;
             if (primary == s) {
                 primary = null;
-                if (!screens.isEmpty()) setPrimary(screens.get(0));
+                // Rather one on show than one waiting for OK (on the overlay it has no tile and isn't heard).
+                Screen next = screens.isEmpty() ? null : screens.get(0);
+                for (Screen o : screens) {
+                    if (o.state() == Screen.State.ALLOWED) {
+                        next = o;
+                        break;
+                    }
+                }
+                setPrimary(next);
             }
         }
         notifyChanged();

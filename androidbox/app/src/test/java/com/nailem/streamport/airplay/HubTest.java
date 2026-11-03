@@ -8,6 +8,8 @@ import org.junit.Test;
 
 import java.lang.reflect.Proxy;
 import java.net.InetAddress;
+import java.util.Arrays;
+import java.util.Collections;
 
 public class HubTest {
 
@@ -77,5 +79,21 @@ public class HubTest {
         assertEquals(Screen.State.PENDING, waiting.state());
         hub.setAskBeforeShowing(false, false);
         assertEquals(Screen.State.ALLOWED, waiting.state());
+    }
+
+    /** The overlay asks about the oldest waiting sender, then the next. */
+    @Test
+    public void pendingOldestFirst() throws Exception {
+        Hub hub = Hub.get();
+        hub.setAskBeforeShowing(true, true);
+        Screen first = screen(Screen.Kind.AIRPLAY, "10.9.0.4");
+        Screen second = screen(Screen.Kind.BROWSER, "10.9.0.5");
+        assertTrue(hub.add(first));
+        assertTrue(hub.add(second));
+        assertEquals(Arrays.asList(first, second), hub.pending());
+        hub.approve(first);
+        assertEquals(Collections.singletonList(second), hub.pending());
+        second.close();
+        assertTrue(hub.pending().isEmpty());
     }
 }

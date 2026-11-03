@@ -7,9 +7,14 @@ import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ServiceInfo;
+import android.graphics.Color;
 import android.net.wifi.WifiManager;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
 import android.util.Log;
+import android.view.KeyEvent;
+import android.widget.LinearLayout;
 
 import com.nailem.streamport.admin.AdminServer;
 import com.nailem.streamport.admin.PinOverlay;
@@ -24,11 +29,14 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.IOException;
+import java.util.Collections;
+import java.util.List;
 import java.util.Locale;
 
 /**
  * Keeps the AirPlay receiver running in the background: the RTSP server, its mDNS records, the audio output and
- * the admin page. Brings {@link StreamActivity} up when the first sender connects.
+ * the admin page. Brings {@link StreamActivity} up when the first sender connects, or, when it may draw over other
+ * apps, asks about a sender waiting for OK on an {@link Overlay} first and brings it up once one is approved.
  */
 public final class StreamService extends Service implements Hub.Listener, AdminServer.Admin {
 
@@ -53,6 +61,29 @@ public final class StreamService extends Service implements Hub.Listener, AdminS
         return receiverName;
     }
     private PinOverlay pinOverlay;
+    /** A sender waiting on the overlay is refused after this long. */
+    static final long ASK_TIMEOUT_MS = 30_000;
+    private final Handler main = new Handler(Looper.getMainLooper());
+    private Overlay askOverlay;
+    /** The waiting sender the overlay asks about, and how many wait behind it. Main thread. */
+    private Screen asking;
+    private int askingMore;
+    /** The key pressed down on the card, so a release of a press that began before it showed is ignored. */
+    private int askKeyDown = KeyEvent.KEYCODE_UNKNOWN;
+    private final Runnable askTimeout = () -> {
+        // Not one answered in the same main-loop turn the timeout came due.
+        if (asking == null || asking.isClosed() || asking.state() != Screen.State.PENDING) return;
+        Log.i(TAG, asking.name() + ": not approved within " + ASK_TIMEOUT_MS / 1000 + " s; refused");
+        Hub.get().refuse(asking);
+    };
+
+    /**
+     * Whether a sender waiting for OK is asked about on the overlay (the tiles come up once it is approved).
+     * Otherwise the tiles come up at once, with its "OK allow / BACK refuse" card.
+     */
+    static boolean asksOnOverlay(Context c) {
+        return android.provider.Settings.canDrawOverlays(c);
+    }
 
     static void start(Context c) {
         c.startForegroundService(new Intent(c, StreamService.class));
@@ -134,6 +165,7 @@ public final class StreamService extends Service implements Hub.Listener, AdminS
         Config.applyLimits(this);
         audio = new AudioPlayer();
         hub.setAudioSink(audio);
+        askOverlay = new Overlay(this);
         hub.addListener(this);
 
         receiverName = Config.name(this);
@@ -201,9 +233,12 @@ public final class StreamService extends Service implements Hub.Listener, AdminS
             startRebroadcast();
             if (Hub.get().count() == 0) stopCapture();
         }
-        if (Hub.get().count() > 0) {
+        List<Screen> waiting = asksOnOverlay(this) ? Hub.get().pending() : Collections.emptyList();
+        ask(waiting);
+        int count = Hub.get().count();
+        if (count > 0) {
             wifiLock.acquire();
-            if (!StreamActivity.isShowing()) {
+            if (count > waiting.size() && !StreamActivity.isShowing()) {
                 Intent i = new Intent(this, StreamActivity.class)
                         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                         .putExtra(StreamActivity.EXTRA_AUTO, true);
@@ -212,6 +247,46 @@ public final class StreamService extends Service implements Hub.Listener, AdminS
         } else if (wifiLock.isHeld()) {
             wifiLock.release();
         }
+    }
+
+    /**
+     * Asks about the oldest waiting sender on the overlay (OK allows, BACK refuses, silence refuses), or hides it
+     * when nobody waits. Rebuilt only when that changes. Main thread.
+     */
+    private void ask(List<Screen> waiting) {
+        Screen next = waiting.isEmpty() ? null : waiting.get(0);
+        int more = Math.max(0, waiting.size() - 1);
+        if (next == asking && more == askingMore) return;
+        if (next != asking) {
+            main.removeCallbacks(askTimeout);
+            if (next != null) main.postDelayed(askTimeout, ASK_TIMEOUT_MS);
+        }
+        asking = next;
+        askingMore = more;
+        askKeyDown = KeyEvent.KEYCODE_UNKNOWN;
+        if (next == null) {
+            askOverlay.hide();
+            return;
+        }
+        LinearLayout card = askOverlay.card();
+        card.addView(askOverlay.text(getString(R.string.pending_title, next.name()), Color.WHITE, 20));
+        card.addView(askOverlay.text(getString(R.string.pending_keys), 0xFF30E0C4, 16));
+        if (more > 0) card.addView(askOverlay.text(getString(R.string.pending_more, more), 0xB3FFFFFF, 14));
+        // ponytail: the focusable overlay takes the D-pad from the app underneath while it is up (bounded by
+        // ASK_TIMEOUT_MS); if that ever matters, an accessibility service's key filter could answer without focus.
+        askOverlay.show(card, (v, keyCode, e) -> {
+            boolean ok = keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER
+                    || keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER;
+            if (!ok && keyCode != KeyEvent.KEYCODE_BACK) return false;
+            // On key up: answering the press would close the card and leave its release to whatever is focused next.
+            if (e.getAction() == KeyEvent.ACTION_DOWN && e.getRepeatCount() == 0) askKeyDown = keyCode;
+            if (e.getAction() == KeyEvent.ACTION_UP && askKeyDown == keyCode && !e.isCanceled()) {
+                askKeyDown = KeyEvent.KEYCODE_UNKNOWN;
+                if (ok) Hub.get().approve(next);
+                else Hub.get().refuse(next);
+            }
+            return true;
+        });
     }
 
     // ---- rebroadcast: the idle screen while nobody shares, the TV itself while someone does ----
@@ -351,6 +426,8 @@ public final class StreamService extends Service implements Hub.Listener, AdminS
         }
         if (shareServer != null) shareServer.stop();
         if (pinOverlay != null) pinOverlay.hide();
+        main.removeCallbacks(askTimeout);
+        if (askOverlay != null) askOverlay.hide();
         if (advertiser != null) advertiser.stop();
         if (server != null) server.stop();
         Hub.get().setAudioSink(null);
