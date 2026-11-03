@@ -55,3 +55,9 @@ code { background: var(--bg); border: 1px solid var(--line); border-radius: 6px;
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
 .toast.err { background: #2a0d14; border-color: var(--poor); }
 @media (max-width: 480px) { .actions { width: 100%; } .actions button { flex: 1; } }
+/* Two columns on wide screens: everyday controls + live screens on the left, network and limits on the right. */
+@media (min-width: 900px) {
+  main { max-width: 1200px; }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+  .col { min-width: 0; }
+}

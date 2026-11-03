@@ -4,6 +4,8 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.util.Log;
 
+import com.nailem.streamport.webrtc.HttpsOnly;
+
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -28,13 +30,16 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import javax.net.ssl.SSLSocket;
+
 /**
- * The admin web page: http://&lt;box&gt;:8089/ on the LAN. Layout and primary screen, the receiver's name, and
+ * The admin web page: https://&lt;box&gt;:8089/ on the LAN (plain http is redirected; same self-signed
+ * certificate as the share page). Layout and primary screen, the receiver's name, and
  * kicking senders.
  * <p>
  * Login is a 6-digit PIN that the TV shows on request ({@link Admin#showPin}), valid 60 s, five tries. A correct
- * PIN gives the browser a random session token in an HttpOnly, SameSite=Strict cookie for 30 days; the box keeps
- * only SHA-256 hashes of tokens. Every API call needs that cookie and an {@code X-Admin: 1} header, which a
+ * PIN gives the browser a random session token in a Secure, HttpOnly, SameSite=Strict cookie for 30 days; the box
+ * keeps only SHA-256 hashes of tokens. Every API call needs that cookie and an {@code X-Admin: 1} header, which a
  * cross-site form can't send. Requests whose Host isn't an IP address or a {@code .local} name are refused, which
  * stops DNS-rebinding pages from reaching the API through a visitor's browser.
  */
@@ -152,7 +157,7 @@ public final class AdminServer {
         server.bind(new InetSocketAddress(PORT), 8);
         running = true;
         new Thread(this::acceptLoop, "admin-accept").start();
-        Log.i(TAG, "admin page on port " + PORT);
+        Log.i(TAG, "admin page on https port " + PORT + " (http redirects)");
     }
 
     public void stop() {
@@ -190,14 +195,17 @@ public final class AdminServer {
                 open.incrementAndGet();
             }
             new Thread(() -> {
+                // One deadline for the whole connection: first byte, handshake and request.
+                long deadline = System.nanoTime() + REQUEST_MS * 1_000_000L;
+                SSLSocket tls = null;
                 try {
-                    s.setSoTimeout((int) REQUEST_MS);
-                    serve(s);
+                    tls = HttpsOnly.accept(s, HttpsOnly.context(context), deadline);
+                    if (tls != null) serve(tls, deadline);
                 } catch (Throwable e) {
                     // Throwable, not Exception: nothing a client sends may take the whole app down.
                     Log.i(TAG, "admin " + from.getHostAddress() + ": " + e);
                 } finally {
-                    close(s);
+                    close(tls != null ? tls : s); // the TLS socket sends close_notify and closes s too
                     synchronized (perHost) {
                         int mine = perHost.getOrDefault(from, 1) - 1;
                         if (mine <= 0) perHost.remove(from);
@@ -229,10 +237,10 @@ public final class AdminServer {
         }
     }
 
-    private void serve(Socket s) throws IOException {
+    private void serve(Socket s, long deadline) throws IOException {
         DataInputStream in = new DataInputStream(new BufferedInputStream(s.getInputStream()));
         OutputStream out = s.getOutputStream();
-        Request r = read(in, System.nanoTime() + REQUEST_MS * 1_000_000L);
+        Request r = read(in, deadline);
         if (r == null) return;
         if (!hostAllowed(r.header("Host")) || !ownAddress(r.header("Host"))) {
             send(out, 421, "text/plain", "Misdirected request".getBytes(StandardCharsets.UTF_8), null);
@@ -425,11 +433,11 @@ public final class AdminServer {
                     return;
                 case "POST /api/logout":
                     endSession(token);
-                    json(out, 200, new JSONObject(), COOKIE + "=; Path=/; Max-Age=0; HttpOnly; SameSite=Strict");
+                    json(out, 200, new JSONObject(), COOKIE + "=; Path=/; Max-Age=0; Secure; HttpOnly; SameSite=Strict");
                     return;
                 case "POST /api/logout-all":
                     prefs().edit().remove("admin_sessions").apply();
-                    json(out, 200, new JSONObject(), COOKIE + "=; Path=/; Max-Age=0; HttpOnly; SameSite=Strict");
+                    json(out, 200, new JSONObject(), COOKIE + "=; Path=/; Max-Age=0; Secure; HttpOnly; SameSite=Strict");
                     return;
                 default:
                     json(out, 404, error("no such call"), null);
@@ -567,7 +575,7 @@ public final class AdminServer {
         addSession(token);
         Log.i(TAG, "admin: logged in from " + from.getHostAddress());
         json(out, 200, new JSONObject(), COOKIE + "=" + token + "; Path=/; Max-Age=" + SESSION_MS / 1000
-                + "; HttpOnly; SameSite=Strict");
+                + "; Secure; HttpOnly; SameSite=Strict");
     }
 
     private SharedPreferences prefs() {
