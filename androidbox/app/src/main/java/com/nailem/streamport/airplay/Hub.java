@@ -115,6 +115,15 @@ public final class Hub {
         return screens.size();
     }
 
+    /** Screens waiting for OK, oldest first. */
+    public synchronized List<Screen> pending() {
+        List<Screen> out = new ArrayList<>();
+        for (Screen s : screens) {
+            if (s.state() == Screen.State.PENDING && !s.isClosed()) out.add(s);
+        }
+        return out;
+    }
+
     public synchronized int nextId() {
         return nextId++;
     }

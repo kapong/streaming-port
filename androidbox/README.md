@@ -170,9 +170,12 @@ adb shell am broadcast -n com.nailem.streamport/.SettingsReceiver -a com.nailem.
 adb shell am broadcast -n com.nailem.streamport/.SettingsReceiver -a com.nailem.streamport.SET --es key ask --es value always
 ```
 
-Keys: `name` (what senders see), `ask` (`true` holds each new sender behind an "OK allow / BACK refuse" card
+Keys: `name` (what senders see), `ask` (`true` holds each new sender behind an "OK allow / BACK refuse" prompt
 and remembers the approval until the receiver restarts; `always` holds every share and remembers nothing, so
-the same sender is asked again next time, even when it reconnects mid-share),
+the same sender is asked again next time, even when it reconnects mid-share. The prompt is a small card in the
+top-right corner over whatever is playing, like the admin PIN; it asks about the oldest waiting sender first,
+refuses after 30 s, and the tiles come up only once a sender is approved. Without `SYSTEM_ALERT_WINDOW` the
+tiles come up at once with the prompt on the new sender's tile),
 `max_res` (`1080p`, `1440p`, `4k`), `max_streams` (1 to 8), `rebroadcast` (`true`/`false`), `rebroadcast_res`
 (`720p`, `1080p`), `rebroadcast_fps` (5 to 30). `name`, `ask`, `max_res`, `max_streams` and `rebroadcast` can
 also be changed on the admin page (for `ask`, "Ask before showing": Off = `false`, Ask once per sender = `true`,

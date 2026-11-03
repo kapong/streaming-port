@@ -143,9 +143,9 @@ public final class StreamActivity extends Activity implements Hub.Listener, Tile
     protected void onStop() {
         super.onStop();
         // The screen is gone (Home, another app): stop drawing and let the senders know, rather than decode
-        // four streams nobody sees. They can reconnect at any time.
+        // four streams nobody sees. They can reconnect at any time. Senders still waiting on the overlay stay.
         if (!isChangingConfigurations()) {
-            hub.disconnectAll();
+            for (Screen s : new ArrayList<>(tiles.keySet())) s.close();
             clearTiles();
             finish();
         }
@@ -154,6 +154,8 @@ public final class StreamActivity extends Activity implements Hub.Listener, Tile
     @Override
     public void onSessionsChanged() {
         List<Screen> live = hub.screens();
+        // Senders waiting for OK on the overlay get no tile until approved, so they can't cover a share.
+        if (StreamService.asksOnOverlay(this)) live.removeIf(s -> s.state() == Screen.State.PENDING);
         boolean added = false;
         for (Screen s : new ArrayList<>(tiles.keySet())) {
             if (!live.contains(s)) {
@@ -175,6 +177,8 @@ public final class StreamActivity extends Activity implements Hub.Listener, Tile
                 t.update();
             }
         }
+        // A primary waiting on the overlay has no tile: a screen on show takes over (and is heard).
+        if (!tiles.isEmpty() && !tiles.containsKey(hub.primary())) hub.setPrimary(tiles.keySet().iterator().next());
         if (tiles.isEmpty()) {
             getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
             if (openedAutomatically) {
