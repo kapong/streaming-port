@@ -28,7 +28,6 @@ import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.util.ArrayDeque;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -70,29 +69,24 @@ public final class ShareServer {
     private ServerSocket server;
     private volatile boolean running;
 
-    private List<InetAddress> certifiedFor = new java.util.ArrayList<>();
-
     public ShareServer(Context context) {
         this.context = context.getApplicationContext();
     }
 
     /**
-     * The box's address changed (it joined a network after boot, say): restart with a certificate that names the
-     * new address, so the page doesn't show a name-mismatch warning on top of the expected one.
+     * The box's address changed (it joined a network after boot, say): a certificate that names the new address
+     * for the next connections (share and admin), so the page doesn't show a name-mismatch warning on top of the
+     * expected one.
      */
-    public synchronized void onAddressesChanged() {
-        if (!running || SelfSignedCert.localIPv4().equals(certifiedFor)) return;
-        Log.i(TAG, "share page: address changed, restarting with a new certificate");
-        stop();
+    public void onAddressesChanged() {
         try {
-            start();
+            HttpsOnly.refresh(context);
         } catch (IOException e) {
-            Log.e(TAG, "share page did not restart", e);
+            Log.e(TAG, "share page: new certificate failed", e);
         }
     }
 
     public synchronized void start() throws IOException {
-        certifiedFor = SelfSignedCert.localIPv4();
         HttpsOnly.context(context); // makes or renews the certificate now, not on the first visit
         ServerSocket srv = new ServerSocket();
         server = srv;
@@ -141,15 +135,17 @@ public final class ShareServer {
                 open.incrementAndGet();
             }
             new Thread(() -> {
+                // One deadline for the whole connection: first byte, handshake and request.
+                long deadline = System.nanoTime() + REQUEST_MS * 1_000_000L;
+                SSLSocket tls = null;
                 try {
-                    s.setSoTimeout((int) REQUEST_MS);
-                    SSLSocket tls = HttpsOnly.accept(s, HttpsOnly.context(context), REQUEST_MS);
-                    if (tls != null) serve(tls, from);
+                    tls = HttpsOnly.accept(s, HttpsOnly.context(context), deadline);
+                    if (tls != null) serve(tls, from, deadline);
                 } catch (Throwable e) {
                     // Throwable, not Exception: nothing a client sends may take the whole app down.
                     Log.i(TAG, "share " + from.getHostAddress() + ": " + e);
                 } finally {
-                    close(s);
+                    close(tls != null ? tls : s); // the TLS socket sends close_notify and closes s too
                     synchronized (perHost) {
                         int mine = perHost.getOrDefault(from, 1) - 1;
                         if (mine <= 0) perHost.remove(from);
@@ -182,10 +178,9 @@ public final class ShareServer {
         }
     }
 
-    private void serve(Socket s, InetAddress from) throws IOException {
+    private void serve(Socket s, InetAddress from, long deadline) throws IOException {
         InputStream in = new BufferedInputStream(s.getInputStream());
         OutputStream out = s.getOutputStream();
-        long deadline = System.nanoTime() + REQUEST_MS * 1_000_000L;
         Request r = read(in, deadline);
         if (r == null) return;
         String host = r.header("Host");

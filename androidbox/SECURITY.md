@@ -75,8 +75,11 @@ trusts them for authentication.
   only.
 - **Parsing**: 4 KB lines, 40 headers, 4 KB bodies, 10 s per connection, 8 connections at once, LAN only.
 - **HTTPS** with the share page's self-signed certificate; `http://` gets a `302` to the same path on `https://`
-  (the redirect echoes only a Host that names the box, and the path). Accepted: someone able to intercept traffic on
-  the Wi-Fi (ARP spoofing) could proxy the page if the user clicks through a changed certificate warning.
+  (the redirect echoes only a Host that is one of the box's IP addresses or a `.local` name, otherwise the address
+  dialled, and the path). Accepted: someone able to intercept traffic on the Wi-Fi (ARP spoofing) could proxy the
+  page if the user clicks through a changed certificate warning. After the update to HTTPS, a browser still holding
+  the old non-`Secure` cookie sends it once in plaintext on its first `http://` visit (before the redirect), until it
+  logs in again; "Log out every browser" ends such sessions.
 
 ## 4. Permissions granted over adb
 

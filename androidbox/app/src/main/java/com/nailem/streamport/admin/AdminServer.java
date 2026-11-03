@@ -4,6 +4,8 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.util.Log;
 
+import com.nailem.streamport.webrtc.HttpsOnly;
+
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -27,6 +29,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
+
+import javax.net.ssl.SSLSocket;
 
 /**
  * The admin web page: https://&lt;box&gt;:8089/ on the LAN (plain http is redirected; same self-signed
@@ -191,16 +195,17 @@ public final class AdminServer {
                 open.incrementAndGet();
             }
             new Thread(() -> {
+                // One deadline for the whole connection: first byte, handshake and request.
+                long deadline = System.nanoTime() + REQUEST_MS * 1_000_000L;
+                SSLSocket tls = null;
                 try {
-                    s.setSoTimeout((int) REQUEST_MS);
-                    javax.net.ssl.SSLSocket tls = com.nailem.streamport.webrtc.HttpsOnly.accept(s,
-                            com.nailem.streamport.webrtc.HttpsOnly.context(context), REQUEST_MS);
-                    if (tls != null) serve(tls);
+                    tls = HttpsOnly.accept(s, HttpsOnly.context(context), deadline);
+                    if (tls != null) serve(tls, deadline);
                 } catch (Throwable e) {
                     // Throwable, not Exception: nothing a client sends may take the whole app down.
                     Log.i(TAG, "admin " + from.getHostAddress() + ": " + e);
                 } finally {
-                    close(s);
+                    close(tls != null ? tls : s); // the TLS socket sends close_notify and closes s too
                     synchronized (perHost) {
                         int mine = perHost.getOrDefault(from, 1) - 1;
                         if (mine <= 0) perHost.remove(from);
@@ -232,10 +237,10 @@ public final class AdminServer {
         }
     }
 
-    private void serve(Socket s) throws IOException {
+    private void serve(Socket s, long deadline) throws IOException {
         DataInputStream in = new DataInputStream(new BufferedInputStream(s.getInputStream()));
         OutputStream out = s.getOutputStream();
-        Request r = read(in, System.nanoTime() + REQUEST_MS * 1_000_000L);
+        Request r = read(in, deadline);
         if (r == null) return;
         if (!hostAllowed(r.header("Host")) || !ownAddress(r.header("Host"))) {
             send(out, 421, "text/plain", "Misdirected request".getBytes(StandardCharsets.UTF_8), null);

@@ -9,6 +9,7 @@ import android.system.StructPollfd;
 
 import com.nailem.streamport.admin.AdminServer;
 
+import java.io.BufferedInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.FileDescriptor;
 import java.io.IOException;
@@ -43,40 +44,57 @@ public final class HttpsOnly {
     private HttpsOnly() {
     }
 
-    /** The shared TLS context; made again when the box's addresses change, and daily (renewal near expiry). */
+    /** The shared TLS context, made on first use and again daily (renewal near expiry). Cheap per connection. */
     public static synchronized SSLContext context(Context c) throws IOException {
-        List<InetAddress> now = SelfSignedCert.localIPv4();
-        if (context == null || !now.equals(contextFor) || System.currentTimeMillis() > contextUntil) {
-            try {
-                context = SelfSignedCert.context(c);
-            } catch (GeneralSecurityException e) {
-                throw new IOException("TLS certificate: " + e, e);
-            }
-            contextFor = now;
-            contextUntil = System.currentTimeMillis() + CONTEXT_MS;
-        }
+        if (context == null || System.currentTimeMillis() > contextUntil) build(c, SelfSignedCert.localIPv4());
         return context;
     }
 
     /**
-     * Returns the handshaken TLS socket, or null when the client spoke plain HTTP (it was redirected) or sent nothing.
-     * {@code timeoutMs} bounds the wait for the first byte and the whole plain-HTTP request; the caller has set the
-     * socket's read timeout for the rest.
+     * The box's addresses may have changed (called from the network callback): remake the context when they did, so
+     * the certificate names the new address. No addresses (Wi-Fi down) keeps the current one.
      */
-    public static SSLSocket accept(Socket s, SSLContext tls, long timeoutMs) throws IOException {
-        int first = peek(s, (int) timeoutMs);
+    public static synchronized void refresh(Context c) throws IOException {
+        List<InetAddress> now = SelfSignedCert.localIPv4();
+        if (now.isEmpty() || now.equals(contextFor)) return;
+        build(c, now);
+    }
+
+    private static void build(Context c, List<InetAddress> addresses) throws IOException {
+        try {
+            context = SelfSignedCert.context(c);
+        } catch (GeneralSecurityException e) {
+            throw new IOException("TLS certificate: " + e, e);
+        }
+        contextFor = addresses;
+        contextUntil = System.currentTimeMillis() + CONTEXT_MS;
+    }
+
+    /**
+     * Returns the handshaken TLS socket, or null when the client spoke plain HTTP (it was redirected) or sent nothing.
+     * {@code deadline} ({@link System#nanoTime}) is the connection's: it bounds the wait for the first byte, the
+     * plain-HTTP request, and each read of the handshake.
+     */
+    public static SSLSocket accept(Socket s, SSLContext tls, long deadline) throws IOException {
+        int first = peek(s, remainingMs(deadline));
         if (first < 0) return null;
         if (first == 0x16) { // a TLS handshake record: the ClientHello
             SSLSocket t = (SSLSocket) tls.getSocketFactory()
                     .createSocket(s, s.getInetAddress().getHostAddress(), s.getPort(), true);
             t.setUseClientMode(false);
             t.setEnabledProtocols(new String[]{"TLSv1.3", "TLSv1.2"});
-            t.setSoTimeout((int) timeoutMs);
+            t.setSoTimeout(remainingMs(deadline));
             t.startHandshake();
             return t;
         }
-        redirect(s, System.nanoTime() + timeoutMs * 1_000_000L);
+        s.setSoTimeout(remainingMs(deadline));
+        redirect(s, deadline);
         return null;
+    }
+
+    /** Milliseconds left until {@code deadline}, at least 1 (0 would mean no timeout). */
+    public static int remainingMs(long deadline) {
+        return (int) Math.max(1, (deadline - System.nanoTime()) / 1_000_000L);
     }
 
     /**
@@ -84,7 +102,9 @@ public final class HttpsOnly {
      * stream. Android's SSLSocketFactory has no overload that takes bytes already consumed.
      */
     private static int peek(Socket s, int timeoutMs) throws IOException {
-        try (ParcelFileDescriptor dup = ParcelFileDescriptor.fromSocket(s)) {
+        ParcelFileDescriptor socketFd = ParcelFileDescriptor.fromSocket(s);
+        if (socketFd == null) return -1;
+        try (ParcelFileDescriptor dup = socketFd) {
             FileDescriptor fd = dup.getFileDescriptor();
             StructPollfd p = new StructPollfd();
             p.fd = fd;
@@ -99,7 +119,7 @@ public final class HttpsOnly {
     }
 
     private static void redirect(Socket s, long deadline) throws IOException {
-        InputStream in = s.getInputStream();
+        InputStream in = new BufferedInputStream(s.getInputStream());
         ByteArrayOutputStream line = new ByteArrayOutputStream(128);
         String requestLine = null;
         String host = null;
@@ -136,7 +156,7 @@ public final class HttpsOnly {
     }
 
     /** The Host header when it names this box, with the port added if missing; otherwise the address dialled. */
-    private static String authority(String host, InetAddress local, int port) {
+    static String authority(String host, InetAddress local, int port) {
         if (host != null && host.matches("[0-9A-Za-z.:%\\[\\]-]+") && AdminServer.hostAllowed(host)
                 && AdminServer.ownAddress(host)) {
             boolean hasPort = host.startsWith("[") ? !host.endsWith("]") : host.indexOf(':') >= 0;
