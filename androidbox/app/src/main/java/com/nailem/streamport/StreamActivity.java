@@ -57,6 +57,11 @@ public final class StreamActivity extends Activity implements Hub.Listener, Tile
     private TextView liveMark;
     private boolean captureAsked;
     private static final int REQUEST_CAPTURE = 1;
+    /** A granted capture request the system cancelled is asked again this often, this long apart. */
+    private static final int CAPTURE_RETRIES = 3;
+    private static final long CAPTURE_RETRY_MS = 300;
+    private int captureRetries;
+    private final Runnable askCaptureAgain = this::askCapture;
     /** The layout to go back to when leaving focus with BACK or a long OK. */
     private Hub.Layout beforeFocus = Hub.Layout.DYNAMIC;
     private boolean openedAutomatically;
@@ -140,6 +145,7 @@ public final class StreamActivity extends Activity implements Hub.Listener, Tile
         hub.removeListener(this);
         main.removeCallbacks(statsTick);
         main.removeCallbacks(idleTimeout);
+        main.removeCallbacks(askCaptureAgain);
         super.onPause();
     }
 
@@ -205,13 +211,7 @@ public final class StreamActivity extends Activity implements Hub.Listener, Tile
         }
         main.removeCallbacks(idleTimeout);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-        if (!captureAsked && StreamService.wantsCapture(this)) {
-            // With the adb grant (appops PROJECT_MEDIA allow) Android answers at once, without a dialog.
-            captureAsked = true;
-            android.media.projection.MediaProjectionManager mpm =
-                    getSystemService(android.media.projection.MediaProjectionManager.class);
-            startActivityForResult(mpm.createScreenCaptureIntent(), REQUEST_CAPTURE);
-        }
+        askCapture();
         idle.setVisibility(View.GONE);
         relayout();
         if (added && tiles.size() > 1) {
@@ -226,11 +226,40 @@ public final class StreamActivity extends Activity implements Hub.Listener, Tile
         if (requestCode != REQUEST_CAPTURE) return;
         captureAsked = false;
         if (resultCode == RESULT_OK && data != null) {
+            captureRetries = 0;
             StreamService.onCaptureGranted(resultCode, data);
-        } else {
+        } else if (!projectMediaAllowed()) {
             android.util.Log.w("StreamPort", "rebroadcast: capture not allowed (adb shell appops set "
                     + getPackageName() + " PROJECT_MEDIA allow)");
+        } else if (captureRetries < CAPTURE_RETRIES) {
+            // Granted, yet cancelled: bringing this activity to the front (a new share) closes the system's
+            // capture prompt before it answers. Ask again shortly.
+            captureRetries++;
+            android.util.Log.i("StreamPort", "rebroadcast: capture request cancelled, asking again");
+            main.postDelayed(askCaptureAgain, CAPTURE_RETRY_MS);
+        } else {
+            android.util.Log.w("StreamPort", "rebroadcast: capture request cancelled " + CAPTURE_RETRIES
+                    + " times, giving up until the next change");
+            captureRetries = 0;
         }
+    }
+
+    /** Asks for the screen capture when the service wants one. Main thread. */
+    private void askCapture() {
+        if (captureAsked || !showing || !StreamService.wantsCapture(this)) return;
+        // With the adb grant (appops PROJECT_MEDIA allow) Android answers at once, without a dialog.
+        captureAsked = true;
+        android.media.projection.MediaProjectionManager mpm =
+                getSystemService(android.media.projection.MediaProjectionManager.class);
+        startActivityForResult(mpm.createScreenCaptureIntent(), REQUEST_CAPTURE);
+    }
+
+    /** Whether the adb grant (appops PROJECT_MEDIA allow) is in place, so a refusal is not the user's. */
+    private boolean projectMediaAllowed() {
+        android.app.AppOpsManager ops = getSystemService(android.app.AppOpsManager.class);
+        // "android:project_media" is AppOpsManager.OPSTR_PROJECT_MEDIA, which the SDK hides.
+        return ops.unsafeCheckOpNoThrow("android:project_media", android.os.Process.myUid(), getPackageName())
+                == android.app.AppOpsManager.MODE_ALLOWED;
     }
 
     @Override
