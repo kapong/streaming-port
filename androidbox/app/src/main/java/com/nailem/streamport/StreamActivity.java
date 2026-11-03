@@ -42,6 +42,10 @@ public final class StreamActivity extends Activity implements Hub.Listener, Tile
     /** Nobody shares for this long: back to Home, rather than a still screen for hours. */
     private static final long IDLE_MS = 10 * 60_000;
 
+    /**
+     * Started, not just resumed: the system's capture prompt pauses this activity, and relaunching it then (as the
+     * service does when it isn't showing) would close the prompt before it answers.
+     */
     private static volatile boolean showing;
 
     static boolean isShowing() {
@@ -61,6 +65,8 @@ public final class StreamActivity extends Activity implements Hub.Listener, Tile
     private static final int CAPTURE_RETRIES = 3;
     private static final long CAPTURE_RETRY_MS = 300;
     private int captureRetries;
+    /** Refused (or cancelled too often): don't ask again until the capture is no longer wanted. */
+    private boolean captureRefused;
     private final Runnable askCaptureAgain = this::askCapture;
     /** The layout to go back to when leaving focus with BACK or a long OK. */
     private Hub.Layout beforeFocus = Hub.Layout.DYNAMIC;
@@ -131,9 +137,14 @@ public final class StreamActivity extends Activity implements Hub.Listener, Tile
     }
 
     @Override
+    protected void onStart() {
+        super.onStart();
+        showing = true;
+    }
+
+    @Override
     protected void onResume() {
         super.onResume();
-        showing = true;
         hub.addListener(this);
         onSessionsChanged();
         main.post(statsTick);
@@ -141,16 +152,16 @@ public final class StreamActivity extends Activity implements Hub.Listener, Tile
 
     @Override
     protected void onPause() {
-        showing = false;
         hub.removeListener(this);
         main.removeCallbacks(statsTick);
         main.removeCallbacks(idleTimeout);
-        main.removeCallbacks(askCaptureAgain);
         super.onPause();
     }
 
     @Override
     protected void onStop() {
+        showing = false;
+        main.removeCallbacks(askCaptureAgain);
         super.onStop();
         // The screen is gone (Home, another app): stop drawing and let the senders know, rather than decode
         // four streams nobody sees. They can reconnect at any time. Senders still waiting on the overlay stay.
@@ -167,6 +178,11 @@ public final class StreamActivity extends Activity implements Hub.Listener, Tile
     @Override
     public void onSessionsChanged() {
         List<Screen> live = hub.screens();
+        if (!StreamService.wantsCapture(this)) {
+            // The next change: a later capture may be asked for afresh.
+            captureRefused = false;
+            captureRetries = 0;
+        }
         // Senders waiting for OK on the overlay get no tile until approved, so they can't cover a share.
         if (StreamService.asksOnOverlay(this)) live.removeIf(s -> s.state() == Screen.State.PENDING);
         boolean added = false;
@@ -231,22 +247,24 @@ public final class StreamActivity extends Activity implements Hub.Listener, Tile
         } else if (!projectMediaAllowed()) {
             android.util.Log.w("StreamPort", "rebroadcast: capture not allowed (adb shell appops set "
                     + getPackageName() + " PROJECT_MEDIA allow)");
+            captureRefused = true;
         } else if (captureRetries < CAPTURE_RETRIES) {
-            // Granted, yet cancelled: bringing this activity to the front (a new share) closes the system's
-            // capture prompt before it answers. Ask again shortly.
+            // Granted, yet cancelled: something closed the system's capture prompt before it answered. Ask again
+            // shortly (onResume's onSessionsChanged waits for this retry).
             captureRetries++;
             android.util.Log.i("StreamPort", "rebroadcast: capture request cancelled, asking again");
             main.postDelayed(askCaptureAgain, CAPTURE_RETRY_MS);
         } else {
             android.util.Log.w("StreamPort", "rebroadcast: capture request cancelled " + CAPTURE_RETRIES
                     + " times, giving up until the next change");
-            captureRetries = 0;
+            captureRefused = true;
         }
     }
 
     /** Asks for the screen capture when the service wants one. Main thread. */
     private void askCapture() {
-        if (captureAsked || !showing || !StreamService.wantsCapture(this)) return;
+        if (captureAsked || captureRefused || main.hasCallbacks(askCaptureAgain) || !showing
+                || !StreamService.wantsCapture(this)) return;
         // With the adb grant (appops PROJECT_MEDIA allow) Android answers at once, without a dialog.
         captureAsked = true;
         android.media.projection.MediaProjectionManager mpm =
