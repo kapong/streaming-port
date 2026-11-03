@@ -14,7 +14,12 @@
     <string name="web_who">Laptops share the screen · phones the camera</string>
     <string name="web_scan">Scan, or open</string>
     <string name="web_fine">Chrome, Edge, Firefox or Safari. First visit shows a certificate warning: Advanced → Proceed.</string>
-    <string name="live_mark">\u25CF  Live on the network</string>
+    <string name="watch_title">Watch this TV</string>
+    <!-- Top right while anyone watches the TV over WHEP, so everyone in the room knows it is being sent on. -->
+    <plurals name="watching">
+        <item quantity="one">\u25CF  %1$d watching</item>
+        <item quantity="other">\u25CF  %1$d watching</item>
+    </plurals>
     <string name="connecting">Connecting %1$s…</string>
     <string name="pending_title">%1$s wants to share its screen</string>
     <string name="pending_keys">OK  allow     BACK  refuse</string>

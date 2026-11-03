@@ -205,8 +205,8 @@ public final class StreamService extends Service implements Hub.Listener, AdminS
         com.nailem.streamport.webrtc.Fanout.setEncodeBitrate(
                 com.nailem.streamport.rebroadcast.Rebroadcaster.bitrate(Config.rebroadcastHeight(this)));
         com.nailem.streamport.webrtc.Fanout.setViewerListener(viewers -> {
-            // Here, not only where the encoder starts or stops: the TV's "Live on the network" mark (and its viewer
-            // count) must follow every join and leave.
+            // Here, not only where the encoder starts or stops: the TV's "N watching" mark must follow every join
+            // and leave.
             Hub.get().refresh();
             if (running != this) return;
             if (viewers > 0) startRebroadcast();
@@ -233,8 +233,11 @@ public final class StreamService extends Service implements Hub.Listener, AdminS
                 com.nailem.streamport.webrtc.ShareServer s = shareServer;
                 if (s != null) new Thread(s::onAddressesChanged, "share-readdress").start();
                 if (advertiser != null) advertiser.onNetworkChanged();
-                // The idle screen shows the address too.
-                new android.os.Handler(getMainLooper()).post(StreamService.this::sendIdleScreen);
+                // The idle screen shows the address too (and the watch QR code): the viewers' still and the TV's.
+                new android.os.Handler(getMainLooper()).post(() -> {
+                    sendIdleScreen();
+                    Hub.get().refresh();
+                });
             }
 
             @Override
@@ -575,6 +578,7 @@ public final class StreamService extends Service implements Hub.Listener, AdminS
     public void setWatch(boolean on) {
         Config.set(this, "watch", Boolean.toString(on));
         com.nailem.streamport.webrtc.Fanout.setWatching(on); // off: every viewer's stream ends now
+        Hub.get().refresh(); // the idle screen's watch QR code
         Log.i(TAG, "admin turned watching " + (on ? "on" : "off"));
     }
 

@@ -103,8 +103,9 @@ itself once it is turned back on.
 
 One hardware H.264 encode is shared by every viewer, and it runs only while someone watches: the welcome screen
 (`IdleView`, drawn off screen) while nobody shares, the TV itself while someone does, so viewers never see whatever else the TV shows (Home,
-other apps). The tiles show a small "Live on the network" mark while anyone watches, and the share page warns senders
-that the TV can be watched.
+other apps). While watching is on, the welcome screen shows the watch page's address and a second QR code (top
+right, in place of the four-screen mark); the TV shows a small "● N watching" mark top right while anyone watches
+(idle or not), and the share page warns senders that the TV can be watched.
 
 - At most `watch_max` viewers (default 20, 1 to 30) and 4 per address; past that `503`. Video only.
 - 1280x720 at 12 fps by default (`rebroadcast_res`, `rebroadcast_fps`; the names are from the multicast output this

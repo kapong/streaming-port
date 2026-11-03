@@ -89,7 +89,7 @@ trusts them for authentication.
 | `SYSTEM_ALERT_WINDOW` (appop) | Bring the tiles to the front when a sender connects; show the admin PIN over other apps | Draw over other apps. The PIN overlay is not focusable or touchable and shows fixed text |
 | `WRITE_SECURE_SETTINGS` | Keep the Chromecast/Miracast name (`device_name`) equal to the AirPlay name | Change system settings. The app writes only `device_name`, only from the logged-in admin page or the adb settings broadcast, with a cleaned name (printable, at most 50 bytes) |
 
-| `PROJECT_MEDIA` (appop) | Capture the TV for WHEP viewers without a consent dialog nobody is there to click | Capture the screen. Used only while someone watches and someone is sharing; the TV shows "Live on the network" meanwhile |
+| `PROJECT_MEDIA` (appop) | Capture the TV for WHEP viewers without a consent dialog nobody is there to click | Capture the screen. Used only while someone watches and someone is sharing; the TV shows "● N watching" meanwhile |
 
 Revoke either with `adb shell pm revoke com.nailem.streamport android.permission.WRITE_SECURE_SETTINGS` or
 `adb shell appops set com.nailem.streamport SYSTEM_ALERT_WINDOW deny`; the app keeps working without the feature.
@@ -181,7 +181,7 @@ the viewer count and the switch.
 
 While nobody shares only the welcome screen is sent, drawn off screen, so nothing else the TV shows (Home, other apps) goes out, and the screen capture is held only while
 someone shares and someone watches. The encoder runs only while at least one viewer is connected. Mitigations: the
-share page tells browser senders before they share, the tiles show "Live on the network" while anyone watches,
+share page tells browser senders before they share, the TV shows "● N watching" while anyone watches,
 `watch_max` viewers at most (default 20) and 4 per address, each viewer's resource URL is a random secret, media is
 DTLS-SRTP. A PIN for watching is planned, not built. The capture needs the `PROJECT_MEDIA` appop (section 4). Encoder
 and capture errors end the viewers' streams instead of the app. The UDP multicast output (MPEG-TS for VLC) that

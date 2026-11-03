@@ -94,7 +94,6 @@ public final class StreamActivity extends Activity implements Hub.Listener, Tile
         root.addView(hint, hp);
         // Shown while someone watches the TV over WHEP, so everyone in the room knows it is being sent on.
         liveMark = new TextView(this);
-        liveMark.setText(R.string.live_mark);
         liveMark.setTextColor(0xE6FFFFFF);
         liveMark.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
         liveMark.setBackgroundResource(R.drawable.tile_label_bg);
@@ -182,6 +181,11 @@ public final class StreamActivity extends Activity implements Hub.Listener, Tile
         }
         // A primary waiting on the overlay has no tile: a screen on show takes over (and is heard).
         if (!tiles.isEmpty() && !tiles.containsKey(hub.primary())) hub.setPrimary(tiles.keySet().iterator().next());
+        // Idle or not: the room sees how many watch.
+        int viewers = com.nailem.streamport.webrtc.Fanout.viewers();
+        liveMark.setText(getResources().getQuantityString(R.plurals.watching, viewers, viewers));
+        liveMark.setVisibility(viewers > 0 ? View.VISIBLE : View.GONE);
+        liveMark.bringToFront();
         if (tiles.isEmpty()) {
             getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
             if (openedAutomatically) {
@@ -196,8 +200,6 @@ public final class StreamActivity extends Activity implements Hub.Listener, Tile
         }
         main.removeCallbacks(idleTimeout);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-        liveMark.setVisibility(com.nailem.streamport.webrtc.Fanout.viewers() > 0 ? View.VISIBLE : View.GONE);
-        liveMark.bringToFront();
         if (!captureAsked && StreamService.wantsCapture(this)) {
             // With the adb grant (appops PROJECT_MEDIA allow) Android answers at once, without a dialog.
             captureAsked = true;

@@ -79,7 +79,7 @@ function render(s, force) {
     $('viewers').textContent = s.watch ? s.viewers + ' of ' + s.watchMax + ' watching' : '';
     const url = 'http://' + location.hostname + ':' + s.watchPort + '/';
     $('watch-hint').textContent = s.watch
-      ? 'Anyone on the Wi-Fi can watch the TV at ' + url + ' (video only, no PIN). The TV shows \u201CLive on the network\u201D while anyone watches.'
+      ? 'Anyone on the Wi-Fi can watch the TV at ' + url + ' (video only, no PIN). The TV shows its address as a QR code, and how many watch.'
       : 'Nobody can watch the TV. Sharing to the TV still works.';
   }
   for (const b of document.querySelectorAll('.seg button')) b.classList.toggle('on', b.dataset.mode === s.layout);
