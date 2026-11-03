@@ -25,7 +25,7 @@
     <string name="layout_dynamic">Dynamic layout</string>
     <string name="layout_focus">Focus: one screen     ◀ ▶  switch screens</string>
     <string name="joined_focus">Someone joined     ◀ ▶  switch screens     OK  see all</string>
-    <string name="admin_url"><![CDATA[Admin <b>http://%1$s:%2$d</b>]]></string>
+    <string name="admin_url"><![CDATA[Admin <b>https://%1$s:%2$d</b>]]></string>
     <string name="back_again">Press BACK again to stop all screens</string>
     <string name="full_toast">All 4 places are taken</string>
 </resources>

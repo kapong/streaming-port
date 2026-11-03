@@ -24,7 +24,7 @@ adb shell appops set com.nailem.streamport PROJECT_MEDIA allow                  
 adb shell am start -n com.nailem.streamport/.StreamActivity                     # first start; afterwards it starts at boot
 ```
 
-Then open the admin page at `http://<box-ip>:8089` (log in with the PIN the TV shows) to rename the receiver and set
+Then open the admin page at `https://<box-ip>:8089` (log in with the PIN the TV shows) to rename the receiver and set
 the limits. On a box like the Xiaomi TV Box S, **720p and 4 screens** keeps CPU and RAM under 80% (measurements
 below); 1080p suits 1 to 3 screens. Browsers share at `https://<box-ip>:9443` (the TV shows it as a QR code).
 Updates: install a newer release the same way (`adb install -r`); settings stay.
@@ -135,7 +135,8 @@ goes back to Home after 10 minutes with nobody sharing.
 
 ## Admin page
 
-`http://BOX_IP:8089` from any browser on the LAN (the TV's idle screen shows the address). Press "Show PIN on
+`https://BOX_IP:8089` from any browser on the LAN (the TV's idle screen shows the address; `http://` is redirected,
+and the browser warns once about the self-signed certificate, as on the share page). Press "Show PIN on
 TV", type the 6-digit code from the TV, and the browser stays logged in for 30 days. From there: rename the
 receiver, switch layout, pick the primary screen, choose whether new senders need OK on the remote (Ask before
 showing: off, once per sender, every time), set the max resolution and max screens, see each sender's

@@ -66,7 +66,7 @@ trusts them for authentication.
 - **Login**: a 6-digit PIN shown on the TV for 60 s on request. Whoever can see the TV can log in (by
   design). Five tries per PIN; a new PIN at most every 15 s; 20 wrong guesses lock logins for 15 minutes.
   Comparison is constant-time.
-- **Sessions**: 32 random bytes in an `HttpOnly; SameSite=Strict` cookie for 30 days. The box stores only SHA-256
+- **Sessions**: 32 random bytes in a `Secure; HttpOnly; SameSite=Strict` cookie for 30 days. The box stores only SHA-256
   hashes, at most 20. "Log out every browser" clears them all.
 - **Cross-site requests**: every API call needs the `X-Admin: 1` header, which a cross-site form or image can't
   send. A `Host` that isn't an IP address or a `.local` name is refused, which stops DNS-rebinding pages.
@@ -74,8 +74,9 @@ trusts them for authentication.
   `X-Frame-Options: DENY`, `nosniff`, `no-store`, `no-referrer`. Sender names are inserted with `textContent`
   only.
 - **Parsing**: 4 KB lines, 40 headers, 4 KB bodies, 10 s per connection, 8 connections at once, LAN only.
-- **Accepted**: plain HTTP. On a shared WPA2 network someone who captures traffic could read the session cookie.
-  Log out when done, or use "Log out every browser" if in doubt.
+- **HTTPS** with the share page's self-signed certificate; `http://` gets a `302` to the same path on `https://`
+  (the redirect echoes only a Host that names the box, and the path). Accepted: someone able to intercept traffic on
+  the Wi-Fi (ARP spoofing) could proxy the page if the user clicks through a changed certificate warning.
 
 ## 4. Permissions granted over adb
 
@@ -119,7 +120,7 @@ isolation, BPlist and FairPlay checks were found sound. Findings and fixes:
 | 8 | With `ask=true`, approval was remembered by the sender-claimed device ID | Remembered by device ID and address together |
 | 9 | UDP audio can still be spoofed by someone who captured the session setup on the shared Wi-Fi | Inherent (AirPlay audio has no MAC); the source-port lock is the practical defence. Accepted |
 | 10 | `.local` names in Host aren't a rebinding barrier | Moot (cookies are host-scoped; only the PIN request is reachable). IP-literal Hosts must now be one of the box's own addresses |
-| 11 | Plain HTTP: one captured cookie gives 30 days of admin | Accepted; "Log out every browser" ends every session |
+| 11 | Plain HTTP: one captured cookie gives 30 days of admin | Since fixed: HTTPS with a `Secure` cookie, plain HTTP redirected |
 | 12 | Long Thai names could exceed the mDNS label length | Names capped at 50 bytes of UTF-8 (about 16 Thai letters) |
 
 Verified on the box after the fixes: a Host with another IP gets 421; a second address can't replace or burn the
@@ -152,7 +153,7 @@ Audit findings and fixes:
 | 10 | Info: `pc` not volatile; a frozen picture keeps a place (as with AirPlay); people are taught to click through a certificate warning | `pc` volatile; the rest accepted and noted here |
 
 Accepted: the self-signed certificate means someone able to intercept traffic on the Wi-Fi (ARP spoofing) could proxy
-the page and learn a share's secret URL. Same class as the plain-HTTP admin page: LAN only, documented.
+the page and learn a share's secret URL. Same for the admin page, which uses the same certificate: LAN only, documented.
 
 ## 8. LAN rebroadcast (multicast)
 

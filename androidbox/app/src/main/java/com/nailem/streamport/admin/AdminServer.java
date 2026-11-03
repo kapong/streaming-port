@@ -29,12 +29,13 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * The admin web page: http://&lt;box&gt;:8089/ on the LAN. Layout and primary screen, the receiver's name, and
+ * The admin web page: https://&lt;box&gt;:8089/ on the LAN (plain http is redirected; same self-signed
+ * certificate as the share page). Layout and primary screen, the receiver's name, and
  * kicking senders.
  * <p>
  * Login is a 6-digit PIN that the TV shows on request ({@link Admin#showPin}), valid 60 s, five tries. A correct
- * PIN gives the browser a random session token in an HttpOnly, SameSite=Strict cookie for 30 days; the box keeps
- * only SHA-256 hashes of tokens. Every API call needs that cookie and an {@code X-Admin: 1} header, which a
+ * PIN gives the browser a random session token in a Secure, HttpOnly, SameSite=Strict cookie for 30 days; the box
+ * keeps only SHA-256 hashes of tokens. Every API call needs that cookie and an {@code X-Admin: 1} header, which a
  * cross-site form can't send. Requests whose Host isn't an IP address or a {@code .local} name are refused, which
  * stops DNS-rebinding pages from reaching the API through a visitor's browser.
  */
@@ -152,7 +153,7 @@ public final class AdminServer {
         server.bind(new InetSocketAddress(PORT), 8);
         running = true;
         new Thread(this::acceptLoop, "admin-accept").start();
-        Log.i(TAG, "admin page on port " + PORT);
+        Log.i(TAG, "admin page on https port " + PORT + " (http redirects)");
     }
 
     public void stop() {
@@ -192,7 +193,9 @@ public final class AdminServer {
             new Thread(() -> {
                 try {
                     s.setSoTimeout((int) REQUEST_MS);
-                    serve(s);
+                    javax.net.ssl.SSLSocket tls = com.nailem.streamport.webrtc.HttpsOnly.accept(s,
+                            com.nailem.streamport.webrtc.HttpsOnly.context(context), REQUEST_MS);
+                    if (tls != null) serve(tls);
                 } catch (Throwable e) {
                     // Throwable, not Exception: nothing a client sends may take the whole app down.
                     Log.i(TAG, "admin " + from.getHostAddress() + ": " + e);
@@ -425,11 +428,11 @@ public final class AdminServer {
                     return;
                 case "POST /api/logout":
                     endSession(token);
-                    json(out, 200, new JSONObject(), COOKIE + "=; Path=/; Max-Age=0; HttpOnly; SameSite=Strict");
+                    json(out, 200, new JSONObject(), COOKIE + "=; Path=/; Max-Age=0; Secure; HttpOnly; SameSite=Strict");
                     return;
                 case "POST /api/logout-all":
                     prefs().edit().remove("admin_sessions").apply();
-                    json(out, 200, new JSONObject(), COOKIE + "=; Path=/; Max-Age=0; HttpOnly; SameSite=Strict");
+                    json(out, 200, new JSONObject(), COOKIE + "=; Path=/; Max-Age=0; Secure; HttpOnly; SameSite=Strict");
                     return;
                 default:
                     json(out, 404, error("no such call"), null);
@@ -567,7 +570,7 @@ public final class AdminServer {
         addSession(token);
         Log.i(TAG, "admin: logged in from " + from.getHostAddress());
         json(out, 200, new JSONObject(), COOKIE + "=" + token + "; Path=/; Max-Age=" + SESSION_MS / 1000
-                + "; HttpOnly; SameSite=Strict");
+                + "; Secure; HttpOnly; SameSite=Strict");
     }
 
     private SharedPreferences prefs() {

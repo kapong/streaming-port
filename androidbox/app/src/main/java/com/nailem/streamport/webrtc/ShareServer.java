@@ -21,6 +21,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -32,8 +33,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLServerSocket;
 import javax.net.ssl.SSLSocket;
 
 /**
@@ -68,7 +67,7 @@ public final class ShareServer {
     private final AtomicInteger open = new AtomicInteger();
     private final Map<InetAddress, Integer> perHost = new HashMap<>();
     private final Map<InetAddress, ArrayDeque<Long>> offers = new HashMap<>();
-    private SSLServerSocket server;
+    private ServerSocket server;
     private volatile boolean running;
 
     private List<InetAddress> certifiedFor = new java.util.ArrayList<>();
@@ -94,22 +93,16 @@ public final class ShareServer {
 
     public synchronized void start() throws IOException {
         certifiedFor = SelfSignedCert.localIPv4();
-        SSLContext tls;
-        try {
-            tls = SelfSignedCert.context(context);
-        } catch (java.security.GeneralSecurityException e) {
-            throw new IOException("TLS certificate: " + e, e);
-        }
-        SSLServerSocket srv = (SSLServerSocket) tls.getServerSocketFactory().createServerSocket();
+        HttpsOnly.context(context); // makes or renews the certificate now, not on the first visit
+        ServerSocket srv = new ServerSocket();
         server = srv;
         server.setReuseAddress(true);
         // IPv4 only: per-address limits mean little when a host can add any number of IPv6 link-local addresses,
         // and the QR code and certificate are IPv4 anyway.
         server.bind(new InetSocketAddress(InetAddress.getByName("0.0.0.0"), PORT), 16);
-        server.setEnabledProtocols(new String[]{"TLSv1.3", "TLSv1.2"});
         running = true;
         new Thread(() -> acceptLoop(srv), "share-accept").start();
-        Log.i(TAG, "share page on https port " + PORT);
+        Log.i(TAG, "share page on https port " + PORT + " (http redirects)");
     }
 
     public synchronized void stop() {
@@ -121,7 +114,7 @@ public final class ShareServer {
     }
 
     /** Bound to its own socket: after a restart the old loop ends with the old socket. */
-    private void acceptLoop(SSLServerSocket srv) {
+    private void acceptLoop(ServerSocket srv) {
         while (running && !srv.isClosed()) {
             Socket s;
             try {
@@ -150,8 +143,8 @@ public final class ShareServer {
             new Thread(() -> {
                 try {
                     s.setSoTimeout((int) REQUEST_MS);
-                    ((SSLSocket) s).startHandshake();
-                    serve(s, from);
+                    SSLSocket tls = HttpsOnly.accept(s, HttpsOnly.context(context), REQUEST_MS);
+                    if (tls != null) serve(tls, from);
                 } catch (Throwable e) {
                     // Throwable, not Exception: nothing a client sends may take the whole app down.
                     Log.i(TAG, "share " + from.getHostAddress() + ": " + e);
